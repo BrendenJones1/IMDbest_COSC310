@@ -1,0 +1,56 @@
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Python / FastAPI ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.pyre/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+backend/.venv/
+
+# IDE / Editor settings
+.vscode/
+.idea/
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Env / secrets (commit a .env.example instead)
+.env
+.env.*
+!.env.example
+
+# Node (if you have a Next.js frontend)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Builds / dist
+dist/
+build/
+.next/
+out/
+
+# Docker
+**/.dockerignore
+docker-data/
+
+# Cache for tools
+.cache/
