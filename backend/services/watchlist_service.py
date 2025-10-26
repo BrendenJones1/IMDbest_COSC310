@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-WATCHLIST_FILE = Path("data/watchlist.json")  # ok if you run from backend/
+WATCHLIST_FILE = Path(__file__).resolve().parents[1] / "data" / "watchlist.json"
 
 def _now_utc_iso() -> str:
     # timezone-aware ISO8601 (e.g., 2025-10-25T07:31:12.345678+00:00)
