@@ -1,6 +1,8 @@
 import json
+import os
 from pathlib import Path
 from typing import Dict, Any
+
 
 #config directories
 MOVIES_DIR = Path("app/data/movies")
@@ -10,6 +12,38 @@ MOVIES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class MovieRepository:
+
+    @staticmethod
+    def _slug(title):
+    # very simple id: lowercase + spaces -> hyphens
+        return title.strip().lower().replace(" ", "-")
+
+    @staticmethod
+    def list_movies():
+        items = []
+        if not os.path.isdir(MOVIES_DIR):
+            return items
+        for name in sorted(os.listdir(MOVIES_DIR)):
+            path = os.path.join(MOVIES_DIR, name)
+            if os.path.isdir(path):
+                items.append({
+                    "id": _slug(name),
+                    "title": name
+                })
+        return items
+
+    @staticmethod
+    def search_movies(q):
+        if not q:
+            return []
+        q = q.strip().lower()
+        results = []
+        for m in list_movies():
+            title = (m.get("title") or "").lower()
+            if q in title:
+                results.append(m)
+        return results
+
     @staticmethod
     def get_movie_metadata(movie_id: str) -> Dict[str, Any]:
         # find metadata path
