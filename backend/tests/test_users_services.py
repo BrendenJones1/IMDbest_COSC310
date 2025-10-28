@@ -1,27 +1,27 @@
 import pytest
 from fastapi import HTTPException
 from backend.repositories import users_repo
-from services import users_service
-from schemas.user import UserCreate, UserUpdate
-from utils.security import verify_password
+from backend.services import users_service
+from backend.schemas.user import UserCreate, UserUpdate
+from backend.utils.security import verify_password
 
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
     """Ensure tests always start with a clean users list."""
-    test_store = []
+    store = []
 
-    def fake_load():
-        return test_store
+    def fake_load_users():
+        # Return a *copy* to simulate real file reads
+        return store.copy()
 
-    def fake_save(data):
-        test_store.clear()
-        test_store.extend(data)
+    def fake_save_users(data):
+        store.clear()
+        store.extend(data)
 
-    monkeypatch.setattr(users_repo, "load_users", fake_load)
-    monkeypatch.setattr(users_repo, "save_users", fake_save)
+    monkeypatch.setattr(users_service, "load_users", fake_load_users)
+    monkeypatch.setattr(users_service, "save_users", fake_save_users)
 
-    return test_store
-
+    return store
 
 def test_register_success():
     token = users_service.register(UserCreate(
