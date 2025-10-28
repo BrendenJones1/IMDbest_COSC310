@@ -1,6 +1,6 @@
 import pytest
 from fastapi import HTTPException
-from repositories import users_repo
+from backend.repositories import users_repo
 from services import users_service
 from schemas.user import UserCreate, UserUpdate
 from utils.security import verify_password
