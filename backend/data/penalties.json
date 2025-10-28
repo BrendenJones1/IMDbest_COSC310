@@ -1,0 +1,24 @@
+[
+    {
+        "penalty_id": 1,
+        "user_id": 8,
+        "issued_by": 101,
+        "reason": "Repeated offensive reviews",
+        "source_flag_id": 55,
+        "date_issued": "2025-10-27T21:14:03Z",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 2,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-10-28T06:51:13.300478+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    }
+]
