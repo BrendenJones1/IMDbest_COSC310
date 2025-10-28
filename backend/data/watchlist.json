@@ -1,0 +1,26 @@
+{
+    "users": [
+        {
+            "userId": "u1",
+            "watchlist": [
+                {
+                    "movieTitle": "m1",
+                    "addedAt": "2025-10-25T08:46:37.339967+00:00"
+                }
+            ]
+        },
+        {
+            "userId": "u2",
+            "watchlist": []
+        },
+        {
+            "userId": "u3",
+            "watchlist": [
+                {
+                    "movieTitle": "m5",
+                    "addedAt": "2025-10-25T08:46:37.342347+00:00"
+                }
+            ]
+        }
+    ]
+}
