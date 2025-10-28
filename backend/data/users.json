@@ -7,7 +7,7 @@
       "role": "user",
       "penalties": [],
       "reviews": [],
-      "watchlists": []
+      "watchlist": []
     },
     "2fa412a0-824a-4c2b-9ee7-69c48adbf0a4": {
       "id": "2fa412a0-824a-4c2b-9ee7-69c48adbf0a4",
@@ -17,6 +17,6 @@
       "role": "admin",
       "penalties": [],
       "reviews": [],
-      "watchlists": []
+      "watchlist": []
     }
   }
