@@ -26,6 +26,8 @@ class UserUpdate(BaseModel):
     watchlist: Optional[List[str]] = None
 
 class UserPublic(BaseModel):
+    id: str
     username: str
+    email: str
     reviews: List[str]
     watchlist: List[str]

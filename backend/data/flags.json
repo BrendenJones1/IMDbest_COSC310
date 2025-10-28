@@ -15,5 +15,77 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-10-27T23:51:13.300022"
+    },
+    {
+        "flag_id": 3,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:26:01.003690"
+    },
+    {
+        "flag_id": 4,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:29:55.363435"
+    },
+    {
+        "flag_id": 5,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:33:09.473579"
+    },
+    {
+        "flag_id": 6,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:34:18.525030"
+    },
+    {
+        "flag_id": 7,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:35:12.272284"
+    },
+    {
+        "flag_id": 8,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:54:42.235262"
+    },
+    {
+        "flag_id": 9,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:56:16.567098"
+    },
+    {
+        "flag_id": 10,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-10-28T11:56:53.846968"
     }
 ]

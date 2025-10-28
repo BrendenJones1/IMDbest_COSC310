@@ -6,7 +6,7 @@ from utils.security import hash_password, verify_password, create_access_token
 from typing import List
 
 def list_users() -> List[UserPublic]:
-    return [UserPublic(**it) for it in load_users()]
+    return [UserPublic(**it) for it in load_users() or []]
 
 def register(payload: UserCreate) -> str:
     users = load_users()
@@ -45,28 +45,28 @@ def login(username: str, password: str) -> str:
     return create_access_token(u["id"], u["role"])
 
 def get_user_by_id(user_id: str) -> UserPublic:
-    users = load_users()
+    users = load_users() or []
     for it in users:
         if it.get("id") == user_id:
             return UserPublic(**it)
     raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
 def get_user_by_username(username: str) -> UserPublic:
-    users = load_users()
+    users = load_users() or []
     for it in users:
         if it.get("username").lower() == username.lower():
             return UserPublic(**it)
     raise HTTPException(status_code=404, detail=f"User '{username}' not found")
 
 def _internal_get_user(username: str) -> dict:
-    users = load_users()
+    users = load_users() or []
     for it in users:
         if it.get("username").lower() == username.lower():
             return it
     raise HTTPException(status_code=404, detail="User not found")
 
 def update_user(user_id: str, payload: UserUpdate) -> UserPublic:
-    users = load_users()
+    users = load_users() or []
 
     for idx, it in enumerate(users):
         if it["id"] == user_id:
@@ -97,7 +97,7 @@ def update_user(user_id: str, payload: UserUpdate) -> UserPublic:
     raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
 def delete_user(user_id: str) -> None:
-    users = load_users()
+    users = load_users() or []
     new_users = [it for it in users if it.get("id") != user_id]
     if len(new_users) == len(users):
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")

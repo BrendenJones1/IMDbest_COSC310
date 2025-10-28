@@ -16,10 +16,23 @@ def hash_password(pw: str) -> str:
 def verify_password(pw: str, hashed: str) -> bool:
     return bcrypt.checkpw(pw.encode(), hashed.encode())
 
+
 def create_access_token(sub: str, role: str) -> str:
-    expires = datetime.now(timezone.utc).isoformat() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": sub, "role": role, "exp": expires}
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    to_encode = {
+        "sub": sub,
+        "role": role,
+        "exp": expire  # JWT lib converts this correctly
+    }
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALG
+    )
+
+    return encoded_jwt
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
