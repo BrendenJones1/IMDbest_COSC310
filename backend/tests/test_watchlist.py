@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
-from services import watchlist_service as wl
-
+from backend.services import watchlist_service as wl
 TEST_PATH = Path(__file__).resolve().parents[1] / "data" / "watchlist.json"
 
 def setup_module(module):
