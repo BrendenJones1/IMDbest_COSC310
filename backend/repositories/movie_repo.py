@@ -13,12 +13,12 @@ MOVIES_DIR.mkdir(parents=True, exist_ok=True)
 
 class MovieRepository:
 
-
+    @staticmethod
     def _slug(title):
     # very simple id: lowercase + spaces -> hyphens
         return title.strip().lower().replace(" ", "-")
 
-
+    @staticmethod
     def list_movies():
         items = []
         if not os.path.isdir(MOVIES_DIR):
@@ -27,18 +27,18 @@ class MovieRepository:
             path = os.path.join(MOVIES_DIR, name)
             if os.path.isdir(path):
                 items.append({
-                    "id": _slug(name),
+                    "id": MovieRepository._slug(name),
                     "title": name
                 })
         return items
 
-
+    @staticmethod
     def search_movies(q):
         if not q:
             return []
         q = q.strip().lower()
         results = []
-        for m in list_movies():
+        for m in MovieRepository.list_movies():
             title = (m.get("title") or "").lower()
             if q in title:
                 results.append(m)
