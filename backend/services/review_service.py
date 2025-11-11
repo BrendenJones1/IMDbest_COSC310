@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
@@ -14,21 +14,27 @@ class ReviewService:
 
         #Check if user already has a review for the movie
         current = review_data["reviews"].get(user_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
+
+        rating_total = float(metadata.get("userRatingTotal", 0.0))
+        rating_count = int(metadata.get("userRatingCount", 0))
 
         if current:
             # get rid of/update old reviews metadata
-            old_rating = current["rating"]
-            metadata["userRatingTotal"] -= old_rating
+            rating_total -= float(current["rating"])
         else:
             # add total review count when review is created
-            metadata["userRatingCount"] += 1
+            rating_count += 1
 
         #add and update rating
-        metadata["userRatingTotal"] += review.rating
+        rating_total += float(review.rating)
+        rating_total = max(rating_total, 0.0)
+
+        metadata["userRatingTotal"] = round(rating_total, 3)
+        metadata["userRatingCount"] = rating_count
         metadata["userRatingAverage"] = round(
-            metadata["userRatingTotal"] / metadata["userRatingCount"], 2
-        )
+            rating_total / rating_count, 2
+        ) if rating_count else 0.0
 
         #create new, updated review
         updated_review = {
@@ -69,12 +75,12 @@ class ReviewService:
         current = review_data["reviews"][user_id]
 
         #subtract the user rating from total and update metadata
-        metadata["userRatingTotal"] -= current["rating"]
-        metadata["userRatingCount"] -= 1
-        metadata["userRatingAverage"] = (
-            round(metadata["userRatingTotal"] / metadata["userRatingCount"], 2)
-            if metadata["userRatingCount"] > 0 else 0.0
-        )
+        rating_total = float(metadata.get("userRatingTotal", 0.0)) - float(current["rating"])
+        rating_total = max(rating_total, 0.0)
+        rating_count = max(int(metadata.get("userRatingCount", 0)) - 1, 0)
+        metadata["userRatingTotal"] = round(rating_total, 3)
+        metadata["userRatingCount"] = rating_count
+        metadata["userRatingAverage"] = round(rating_total / rating_count, 2) if rating_count else 0.0
 
         # remove review
         del review_data["reviews"][user_id]

@@ -87,5 +87,23 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-10-28T11:56:53.846968"
+    },
+    {
+        "flag_id": 11,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-10T17:58:18.369908"
+    },
+    {
+        "flag_id": 12,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-10T18:02:31.864895"
     }
 ]
