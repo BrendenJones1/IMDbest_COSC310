@@ -1,17 +1,47 @@
+import pytest
 from backend.services.penalties_service import PenaltiesService
-import tempfile, os, json
 
-def test_add_and_revoke_penalty():
-    tmpfile = os.path.join(tempfile.gettempdir(), "penalties_test.json")
-    service = PenaltiesService(tmpfile)
 
-    # Add penalty
-    penalty = service.add_penalty(user_id=5, reason="spam", issued_by=10)
+@pytest.fixture()
+def penalties_service(tmp_path):
+    file_path = tmp_path / "penalties.json"
+    return PenaltiesService(str(file_path))
+
+
+def test_add_and_revoke_penalty(penalties_service):
+    penalty = penalties_service.add_penalty(user_id=5, reason="spam", issued_by=10)
     assert penalty["user_id"] == 5
     assert penalty["issued_by"] == 10
     assert penalty["active"] is True
 
-    # Revoke penalty
-    revoked = service.deactivate_penalty(penalty["penalty_id"], revoked_by=11)
+    revoked = penalties_service.deactivate_penalty(penalty["penalty_id"], revoked_by=11)
     assert revoked["active"] is False
     assert revoked["revoked_by"] == 11
+
+
+@pytest.mark.parametrize("source_flag_id", [None, 42])
+def test_add_penalty_source_flag_partitions(penalties_service, source_flag_id):
+    penalty = penalties_service.add_penalty(
+        user_id=1,
+        reason="abuse",
+        issued_by=2,
+        source_flag_id=source_flag_id,
+    )
+    assert penalty["source_flag_id"] == source_flag_id
+
+
+def test_deactivate_penalty_equivalence_partitions(penalties_service):
+    penalty = penalties_service.add_penalty(user_id=7, reason="spam", issued_by=3)
+
+    # Active penalty partition → should deactivate successfully
+    active_result = penalties_service.deactivate_penalty(penalty["penalty_id"], revoked_by=8)
+    assert active_result is not None
+    assert active_result["active"] is False
+
+    # Already inactive penalty partition → should return None
+    repeat_result = penalties_service.deactivate_penalty(penalty["penalty_id"], revoked_by=9)
+    assert repeat_result is None
+
+    # Non-existent penalty partition → should return None
+    missing_result = penalties_service.deactivate_penalty(9999, revoked_by=9)
+    assert missing_result is None
