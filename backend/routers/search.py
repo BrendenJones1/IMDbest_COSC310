@@ -1,9 +1,9 @@
-# backend/routers/search.py
-
 from fastapi import APIRouter, Query
-from backend.services.search_service import search 
+
+from backend.services.search_service import search
 
 router = APIRouter(prefix="/search", tags=["search"])
+
 
 @router.get("")
 def do_search(q: str = Query(""), limit: int = 20):

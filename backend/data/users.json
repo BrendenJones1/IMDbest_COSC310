@@ -8,5 +8,55 @@
     "penalties": [],
     "reviews": [],
     "watchlist": []
+  },
+  {
+    "id": "9b9781f2-4744-4230-ac5e-0857c3ca6acb",
+    "username": "Admin",
+    "email": "admin@example.com",
+    "password_hash": "$2b$12$kKvB/oIdHKDK8PRC.sRUienJIjzpDcmAera1m5nsFC2N6MhJ.Ri5y",
+    "role": "admin",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
+  },
+  {
+    "id": "1098c88b-288a-4787-8fd1-1f2756119fcc",
+    "username": "MovieFan",
+    "email": "user@example.com",
+    "password_hash": "$2b$12$VfHvRmzLyN8kwJN.oEgF8e9d48GkoPLtF2wBURcGAILkNCx2uFZH2",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
+  },
+  {
+    "id": "09079ec3-5c8d-46b1-8e8f-d8974616bb05",
+    "username": "Dan",
+    "email": "danrukundo66@gmail.com",
+    "password_hash": "$2b$12$n2pK7isRlzcA72Uh1PrYAeTFA9sR6iF4ZjE3edSRGjuzBthZ4vYpy",
+    "role": "admin",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
+  },
+  {
+    "id": "5bd73bc7-b7b5-4947-a51a-f177f93ec677",
+    "username": "Demo Admin",
+    "email": "admin@demo.com",
+    "password_hash": "$2b$12$hYQRiPkIg6hS2.3iU52fce2BQvmT4Ozkkf4XqgTPWj4MkjlMi3Mja",
+    "role": "admin",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
+  },
+  {
+    "id": "491b6176-3d34-49f0-ae7d-aa25f71101b9",
+    "username": "Demo User",
+    "email": "user@demo.com",
+    "password_hash": "$2b$12$VFlPOE9ybJtvQfVi7Jow6evMr6eMAMnTkRqNdfw6dx64Rny/VrqbO",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
   }
 ]
