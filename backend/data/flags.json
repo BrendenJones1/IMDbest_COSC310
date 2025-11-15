@@ -96,5 +96,23 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-11-11T19:26:33.549228"
+    },
+    {
+        "flag_id": 12,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-15T00:33:59.542646"
+    },
+    {
+        "flag_id": 13,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-15T00:35:29.116627"
     }
 ]
