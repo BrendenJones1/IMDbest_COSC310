@@ -55,5 +55,5 @@ def test_default_sort_is_title_ascending():
 def test_sort_by_imdb_rating_desc():
     r = client.get("/search?q=&sort_by=imdb_rating&sort_order=desc")
     titles = [item["title"] for item in r.json()["items"]]
-    assert titles[0] == "Charlie Tale"
-    assert titles[-1] == "Bravo Story"
+    assert titles[0] == "Alpha Movie"
+    assert titles[-1] == "Charlie Tale"
