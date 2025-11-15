@@ -1,36 +1,23 @@
+
+# backend/schemas/watchlist_schema.py
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from datetime import datetime
-from typing import List
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
-class WatchlistItem(BaseModel):
-    """Single movie entry in a user's watchlist."""
+class MovieItem(BaseModel):
+    movieTitle: str = Field(..., example="Inception")
+    addedAt: datetime = Field(..., example="2025-10-30T12:34:56+00:00")
 
-    model_config = ConfigDict(populate_by_name=True)
 
-    movie_title: str = Field(..., alias="movieTitle", min_length=1)
-    added_at: datetime = Field(..., alias="addedAt")
+class UserWatchlist(BaseModel):
+    userId: str = Field(..., example="u1")
+    watchlist: List[MovieItem] = []
+
+
+class AddMovieRequest(BaseModel):
+    movieTitle: str = Field(..., example="Interstellar")
 
 
 class WatchlistResponse(BaseModel):
-    """Watchlist payload returned to clients."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    user_id: str = Field(..., alias="userId")
-    watchlist: List[WatchlistItem]
-
-
-class WatchlistAddRequest(BaseModel):
-    """Incoming payload for adding a movie to a watchlist."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    movie_title: str = Field(..., alias="movieTitle", min_length=1)
-
-
-class WatchlistMessage(BaseModel):
-    """Generic response envelope for watchlist operations."""
-
     message: str
