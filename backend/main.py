@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 #from backend.routers import watchlist_router
 from backend.routers.search import router as search_router
+from backend.routers import users_router, admin_router
 
 app = FastAPI(title="COSC310 API (dev)")
 
@@ -19,3 +20,5 @@ app.add_middleware(
 #app.include_router(watchlist_router.router)
 
 app.include_router(search_router)
+app.include_router(users_router.router)
+app.include_router(admin_router.router)
