@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class User(BaseModel):
     id: str
@@ -29,5 +29,5 @@ class UserPublic(BaseModel):
     id: str
     username: str
     email: str
-    reviews: List[str]
-    watchlist: List[str]
+    reviews: list = Field(default_factory=list)
+    watchlist: list = Field(default_factory=list)
