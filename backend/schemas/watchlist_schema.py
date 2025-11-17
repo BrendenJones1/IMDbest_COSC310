@@ -1,23 +1,32 @@
-
-# backend/schemas/watchlist_schema.py
-from pydantic import BaseModel, Field
-from typing import List, Optional
 from datetime import datetime
+from typing import List
+
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class MovieItem(BaseModel):
-    movieTitle: str = Field(..., example="Inception")
-    addedAt: datetime = Field(..., example="2025-10-30T12:34:56+00:00")
+    model_config = ConfigDict(populate_by_name=True)
 
-
-class UserWatchlist(BaseModel):
-    userId: str = Field(..., example="u1")
-    watchlist: List[MovieItem] = []
-
-
-class AddMovieRequest(BaseModel):
-    movieTitle: str = Field(..., example="Interstellar")
+    movie_title: str = Field(..., alias="movieTitle")
+    added_at: datetime = Field(..., alias="addedAt")
 
 
 class WatchlistResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    user_id: str = Field(..., alias="userId")
+    watchlist: List[MovieItem] = []
+
+
+class WatchlistAddRequest(BaseModel):
+    movie_title: str = Field(..., alias="movieTitle")
+
+
+class WatchlistMessage(BaseModel):
     message: str
+
+
+# Backwards compatibility with earlier names used in codebase/tests
+AddMovieRequest = WatchlistAddRequest
+UserWatchlist = WatchlistResponse
+MovieItemResponse = MovieItem

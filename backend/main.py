@@ -10,6 +10,12 @@ if str(ROOT_DIR) not in sys.path:
 
 from backend.routers.search import router as search_router
 from backend.routers.auth_router import router as auth_router
+from backend.routers.watchlist_router import router as watchlist_router
+from backend.routers.flags_router import router as flags_router
+from backend.routers.penalties_router import router as penalties_router
+from backend.routers.users_router import router as users_router
+from backend.routers.admin_router import router as admin_router
+from backend.routers.reviews_router import router as reviews_router
 
 app = FastAPI(title="COSC310 API (dev)")
 
@@ -27,3 +33,9 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(search_router)
+app.include_router(users_router)
+app.include_router(admin_router)
+app.include_router(flags_router)
+app.include_router(penalties_router)
+app.include_router(watchlist_router)
+app.include_router(reviews_router)
