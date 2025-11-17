@@ -18,6 +18,7 @@ class PenaltiesService:
         with open(self.file, "w") as f:
             json.dump(data, f, indent=4)
 
+    ## This has ids as integers inconsistent with other schema
     def add_penalty(self, user_id: int, reason: str, issued_by: int, source_flag_id: int | None = None):
         data = self._load()
         new_penalty = {

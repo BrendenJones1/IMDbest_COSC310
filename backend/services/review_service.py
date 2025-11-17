@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
-from schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
+from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
 from repositories.movie_repo import MovieRepository, ReviewRepository
 
 
@@ -82,3 +82,32 @@ class ReviewService:
         #save review
         ReviewRepository.save_review_data(movie_id, review_data)
         MovieRepository.save_movie_metadata(movie_id, metadata)
+
+    def get_reviews_by_user_id(self, user_id: str) -> List[ReviewOut]:
+        """
+        Return all reviews authored by a given user_id,
+        aggregated across all movies.
+        """
+        reviews: List[ReviewOut] = []
+        movies: List[str] = []
+        # Get all existing movies from the repo
+        all_movies = MovieRepository.list_movies()
+        
+        for movie in all_movies:
+            movie_id = movie['id']
+
+            try:
+                review_data = ReviewRepository.get_review_data(movie_id)
+            except Exception as e:
+                print(f"Warning: could not read reviews for {movie_id}: {e}")
+                continue
+
+            if not review_data or "reviews" not in review_data:
+                continue
+
+            # Each movie stores reviews keyed by user_id
+            if user_id in review_data["reviews"]:
+                reviews.append(ReviewOut(**review_data["reviews"][user_id]))
+                movies.append(movie_id)
+
+        return reviews, movies
