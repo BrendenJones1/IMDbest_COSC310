@@ -1,8 +1,17 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Tuple, List
 
-from schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+# Prefer backend.* schema types (matches tests' imports); fall back to local.
+try:  # pragma: no cover
+    from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut  # type: ignore
+except ImportError:  # pragma: no cover
+    from schemas.review import ReviewCreate, ReviewUpdate, ReviewOut  # type: ignore
+
+# Prefer local repositories so pytest monkeypatches against repositories.* apply; fall back to backend.*.
+try:  # pragma: no cover
+    from repositories.movie_repo import MovieRepository, ReviewRepository  # type: ignore
+except ImportError:  # pragma: no cover
+    from backend.repositories.movie_repo import MovieRepository, ReviewRepository  # type: ignore
 
 
 class ReviewService:
@@ -88,3 +97,18 @@ class ReviewService:
         #save review
         ReviewRepository.save_review_data(movie_id, review_data)
         MovieRepository.save_movie_metadata(movie_id, metadata)
+
+    def get_reviews_by_user_id(self, user_id: str) -> Tuple[List[ReviewOut], List[str]]:
+        """Return all reviews written by a user across all movies."""
+        reviews: List[ReviewOut] = []
+        movie_ids: List[str] = []
+
+        for movie in MovieRepository.list_movies():
+            movie_id = movie["id"]
+            review_data = ReviewRepository.get_review_data(movie_id)
+            user_review = review_data.get("reviews", {}).get(user_id)
+            if user_review:
+                reviews.append(ReviewOut(**user_review))
+                movie_ids.append(movie_id)
+
+        return reviews, movie_ids

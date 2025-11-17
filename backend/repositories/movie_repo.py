@@ -58,15 +58,27 @@ class MovieRepository:
         return items
 
     @staticmethod
-    def search_movies(q):
-        if not q:
-            return []
-        q = q.strip().lower()
+    def search_movies(q: str, include_metadata: bool = False):
+        """
+        Search movies by substring in the title. If q is empty, return all movies.
+        When include_metadata is True, each result will include a 'metadata' key
+        populated from the movie's metadata.json.
+        """
+        query = (q or "").strip().lower()
+        candidates = MovieRepository.list_movies()
+        if query:
+            candidates = [
+                m for m in candidates
+                if query in (m.get("title") or "").lower()
+            ]
+
+        if not include_metadata:
+            return candidates
+
         results = []
-        for m in MovieRepository.list_movies():
-            title = (m.get("title") or "").lower()
-            if q in title:
-                results.append(m)
+        for movie in candidates:
+            metadata = MovieRepository.get_movie_metadata(movie["id"])
+            results.append({**movie, "metadata": metadata})
         return results
 
     @staticmethod
@@ -111,7 +123,10 @@ class ReviewRepository:
             return {"reviews": {}}
 
         with review_path.open() as f:
-            payload = json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {"reviews": {}}
+            payload = json.loads(content)
 
         if isinstance(payload, dict) and "reviews" in payload and isinstance(payload["reviews"], dict):
             return {"reviews": payload["reviews"]}
