@@ -1,7 +1,6 @@
 import pytest
 from fastapi import HTTPException
-from backend.repositories import users_repo
-from backend.services import users_service
+from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
 
@@ -18,8 +17,8 @@ def clean_users(monkeypatch):
         store.clear()
         store.extend(data)
 
-    monkeypatch.setattr(users_service, "load_users", fake_load_users)
-    monkeypatch.setattr(users_service, "save_users", fake_save_users)
+    monkeypatch.setattr(users_service.user_repo, "load_users", fake_load_users)
+    monkeypatch.setattr(users_service.user_repo, "save_users", fake_save_users)
 
     return store
 
