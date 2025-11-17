@@ -4,8 +4,8 @@ from datetime import datetime
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/flags.json")
 
 class FlagsService:
-    def __init__(self):
-        self.file = DATA_PATH
+    def __init__(self, path: str | None = None):
+        self.file = path or DATA_PATH
         if not os.path.exists(self.file):
             with open(self.file, "w") as f:
                 json.dump([], f)
