@@ -1,14 +1,59 @@
-# backend/tests/test_search.py
+import json
+
+import pytest
 from fastapi.testclient import TestClient
+
 from backend.main import app
+from backend.repositories import movie_repo as movie_repo_module
 
 client = TestClient(app)
 
+
+@pytest.fixture(autouse=True)
+def movie_dataset(tmp_path, monkeypatch):
+    movies_dir = tmp_path / "movies"
+    movies_dir.mkdir()
+    monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", movies_dir, raising=False)
+    monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", movies_dir, raising=False)
+
+    def write_movie(title, imdb_rating, user_rating, date_published):
+        movie_dir = movies_dir / title
+        movie_dir.mkdir()
+        metadata = {
+            "title": title,
+            "movieIMDbRating": imdb_rating,
+            "userRatingAverage": user_rating,
+            "datePublished": date_published,
+        }
+        (movie_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+
+    write_movie("Alpha Movie", 8.0, 4.6, "2022-01-01")
+    write_movie("Charlie Tale", 9.1, 4.9, "2015-05-05")
+    write_movie("Bravo Story", 6.4, 3.7, "2019-03-03")
+
+    yield
+
+
 def test_search_structure():
-    r = client.get("/search?q=dark")
+    r = client.get("/search?q=a&limit=5")
     assert r.status_code == 200
     data = r.json()
-    assert "items" in data and "total" in data
+    assert data["total"] == 3
     assert isinstance(data["items"], list)
-    for item in data["items"]:
-        assert "id" in item and "title" in item
+    assert data["items"][0]["id"]
+    assert data["items"][0]["title"]
+    assert "imdbRating" in data["items"][0]
+    assert "userRatingAverage" in data["items"][0]
+
+
+def test_default_sort_is_title_ascending():
+    r = client.get("/search?q=&limit=3")
+    titles = [item["title"] for item in r.json()["items"]]
+    assert titles == sorted(titles)
+
+
+def test_sort_by_imdb_rating_desc():
+    r = client.get("/search?q=&sort_by=imdb_rating&sort_order=desc")
+    titles = [item["title"] for item in r.json()["items"]]
+    assert titles[0] == "Charlie Tale"
+    assert titles[-1] == "Bravo Story"
