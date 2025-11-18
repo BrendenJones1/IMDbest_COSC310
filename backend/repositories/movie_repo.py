@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
@@ -32,7 +33,38 @@ class MovieRepository:
         return None
 
     @staticmethod
-    def list_movies():
+    def _metadata_path(movie_id: str) -> Path:
+        """
+        Compute the metadata.json path for a given movie id (slug).
+        Does not create directories; callers decide persistence.
+        """
+        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        if movie_dir is None:
+            return MOVIES_DIR / movie_id / "metadata.json"
+        return movie_dir / "metadata.json"
+
+    @staticmethod
+    def _load_metadata_file(metadata_path: Path, movie_id: str) -> Dict[str, Any]:
+        """
+        Load metadata from the given path, applying stable defaults when missing.
+        """
+        if metadata_path.exists():
+            with metadata_path.open() as f:
+                metadata = json.load(f) or {}
+        else:
+            metadata = {}
+        metadata.setdefault("movie_id", movie_id)
+        metadata.setdefault("title", metadata.get("title") or movie_id.replace("-", " ").title())
+        metadata.setdefault("userRatingCount", 0)
+        metadata.setdefault("userRatingTotal", 0.0)
+        metadata.setdefault("userRatingAverage", 0.0)
+        # Optional fields that other features/tests may use
+        metadata.setdefault("movieIMDbRating", 0.0)
+        metadata.setdefault("datePublished", "")
+        return metadata
+
+    @staticmethod
+    def list_movies(include_metadata: bool = False):
         items = []
         if not os.path.isdir(MOVIES_DIR):
             return items
