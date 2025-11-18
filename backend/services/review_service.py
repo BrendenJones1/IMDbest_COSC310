@@ -1,5 +1,7 @@
+import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
+from pathlib import Path
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
 from backend.repositories.movie_repo import MovieRepository, ReviewRepository
@@ -22,10 +24,39 @@ class ReviewService:
         except Exception:
             return datetime.utcnow()
 
+    def _load_usernames(self) -> Dict[str, str]:
+        """
+        Load a map of user_id -> username from users.json. Returns {} if missing.
+        """
+        users_file = Path(__file__).resolve().parents[1] / "data" / "users.json"
+        if not users_file.exists():
+            return {}
+        try:
+            with users_file.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return {}
+        id_to_name: Dict[str, str] = {}
+        if isinstance(data, list):
+            for u in data:
+                uid = u.get("id")
+                uname = u.get("username")
+                if uid and uname:
+                    id_to_name[uid] = uname
+        elif isinstance(data, dict):
+            # support alternative shape if ever used
+            for u in data.get("users", []):
+                uid = u.get("id")
+                uname = u.get("username")
+                if uid and uname:
+                    id_to_name[uid] = uname
+        return id_to_name
+
     def list_reviews(self, movie_id: str, sort: str = "recent"):
         """
         Return list of reviews for a movie sorted by 'upvotes' or 'recent'.
         """
+        id_to_name = self._load_usernames()
         data = ReviewRepository.get_review_data(movie_id)
         reviews_map = data.get("reviews", {})
         items = []
@@ -34,6 +65,7 @@ class ReviewService:
             updated_raw = r.get("updated_at") or r.get("timestamp") or r.get("created_at")
             item = {
                 "user_id": user_id,
+                "username": r.get("username") or id_to_name.get(user_id),
                 "rating": int(r.get("rating")) if r.get("rating") is not None else 0,
                 "review_text": r.get("review_text"),
                 "upvotes": int(r.get("upvotes") or 0),
