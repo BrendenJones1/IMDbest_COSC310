@@ -132,5 +132,14 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-11-18T10:41:13.356522"
+    },
+    {
+        "flag_id": 16,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-18T13:17:15.012011"
     }
 ]

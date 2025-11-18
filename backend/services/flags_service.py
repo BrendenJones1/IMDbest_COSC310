@@ -1,22 +1,24 @@
-import json, os
+import os
 from datetime import datetime
+
+from backend.repositories.flags_repo import FlagsRepository
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/flags.json")
 
 class FlagsService:
-    def __init__(self, path: str | None = None):
+    def __init__(self, path: str | None = None, repo: FlagsRepository | None = None):
         self.file = path or DATA_PATH
-        if not os.path.exists(self.file):
-            with open(self.file, "w") as f:
-                json.dump([], f)
+        self.repo = repo or FlagsRepository(self.file)
 
     def _load(self):
-        with open(self.file, "r") as f:
-            return json.load(f)
+        if self.repo.file_path != self.file:
+            self.repo = FlagsRepository(self.file)
+        return self.repo.load()
 
     def _save(self, data):
-        with open(self.file, "w") as f:
-            json.dump(data, f, indent=4)
+        if self.repo.file_path != self.file:
+            self.repo = FlagsRepository(self.file)
+        self.repo.save(data)
 
     def add_flag(self, review_id, flagger_id, flagged_user_id, reason):
         data = self._load()
