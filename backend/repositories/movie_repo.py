@@ -33,7 +33,7 @@ class MovieRepository:
         return None
 
     @staticmethod
-    def list_movies():
+    def list_movies(include_metadata: bool = False):
         items = []
         if not os.path.isdir(MOVIES_DIR):
             return items
