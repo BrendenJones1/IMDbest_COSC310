@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from schemas.user import UserCreate, UserUpdate, UserPublic
+from backend.schemas.user import UserCreate, UserUpdate, UserPublic
 from backend.services.users_service import user_service
-from utils.security import decode_access_token
+from backend.utils.security import decode_access_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 router = APIRouter(prefix="/users", tags=["Users"])

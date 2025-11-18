@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from backend.repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 class ReviewService:
