@@ -66,18 +66,6 @@ def search_users(
     return user_service.search_users_admin(username=username, email=email, role=role)
     
 
-from backend.services.flags_service import FlagsService
-flags_service = FlagsService()
-
-# -------------------------------
-# GET ALL FLAGS
-# -------------------------------
-@router.get("/flags")
-def get_all_flags(current_user: dict = Depends(decode_access_token)):
-    require_admin(current_user)
-    return flags_service.get_all_flags()
-
-
 # -------------------------------
 # GET ALL PENALTIES FOR A USER
 # -------------------------------
@@ -127,24 +115,20 @@ def admin_deactivate_penalty(
     return result
 
 # -------------------------------
-# GET FLAGS
+# FLAGS
 # -------------------------------
 @router.get("/flags")
 def get_all_flags(current_user: dict = Depends(decode_access_token)):
     require_admin(current_user)
     return user_service.flags_service.get_all_flags()
 
-# -------------------------------
-# GET FLAGS BY PENDING
-# -------------------------------
+
 @router.get("/flags/pending")
 def get_pending_flags(current_user: dict = Depends(decode_access_token)):
     require_admin(current_user)
     return user_service.flags_service.get_pending_flags()
 
-# -------------------------------
-# CHANGE A FLAG STATUS
-# -------------------------------
+
 @router.put("/flags/{flag_id}/status")
 def update_flag_status(
     flag_id: int,
@@ -154,10 +138,10 @@ def update_flag_status(
     require_admin(current_user)
 
     if new_status not in {"approved", "rejected", "pending"}:
-        return {"error": "invalid status"}
+        raise HTTPException(status_code=400, detail="invalid status")
 
     updated = user_service.change_flag_status(flag_id, new_status)
     if not updated:
-        return {"error": "flag not found"}
+        raise HTTPException(status_code=404, detail="flag not found")
 
     return updated
