@@ -15,7 +15,11 @@ def watchlist_file(tmp_path, monkeypatch):
     temp_file = tmp_path / "watchlist.json"
     temp_file.write_text(json.dumps({"users": []}), encoding="utf-8")
     monkeypatch.setattr(watchlist_service, "WATCHLIST_FILE", temp_file)
-    monkeypatch.setattr("backend.services.watchlist_service.WATCHLIST_FILE", temp_file, raising=False)
+    monkeypatch.setattr(
+        "backend.services.watchlist_service.WATCHLIST_FILE",
+        temp_file,
+        raising=False,
+    )
     yield
 
 
@@ -28,7 +32,10 @@ def test_get_watchlist_unknown_user_returns_empty():
 
 
 def test_add_movie_creates_user_and_persists():
-    resp = client.post("/watchlists/u42", json={"movieTitle": "Inception"})
+    resp = client.post(
+        "/watchlists/u42/movies",
+        json={"movieTitle": "Inception"},
+    )
     assert resp.status_code == 201
     assert resp.json()["message"] == "New user added with first movie"
 
@@ -43,16 +50,25 @@ def test_add_movie_creates_user_and_persists():
 
 
 def test_add_duplicate_movie_returns_conflict():
-    client.post("/watchlists/u10", json={"movieTitle": "Dune"})
-    resp = client.post("/watchlists/u10", json={"movieTitle": "Dune"})
+    client.post(
+        "/watchlists/u10/movies",
+        json={"movieTitle": "Dune"},
+    )
+    resp = client.post(
+        "/watchlists/u10/movies",
+        json={"movieTitle": "Dune"},
+    )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Movie already in watchlist"
 
 
 def test_remove_existing_movie():
-    client.post("/watchlists/u7", json={"movieTitle": "Arrival"})
+    client.post(
+        "/watchlists/u7/movies",
+        json={"movieTitle": "Arrival"},
+    )
 
-    resp = client.delete("/watchlists/u7/Arrival")
+    resp = client.delete("/watchlists/u7/movies/Arrival")
     assert resp.status_code == 200
     assert resp.json()["message"] == "Movie removed"
 
@@ -61,6 +77,6 @@ def test_remove_existing_movie():
 
 
 def test_remove_unknown_user_returns_404():
-    resp = client.delete("/watchlists/no_user/Anything")
+    resp = client.delete("/watchlists/no_user/movies/Anything")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "User not found"
