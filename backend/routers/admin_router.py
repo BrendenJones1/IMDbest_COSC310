@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.utils.security import decode_access_token, require_admin
 from backend.services.users_service import user_service
+from backend.services.flags_service import FlagsService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+flags_service = FlagsService()
 
 # -------------------------------
 # LIST USERS
