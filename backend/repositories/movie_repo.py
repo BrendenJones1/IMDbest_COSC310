@@ -68,25 +68,30 @@ class MovieRepository:
         items = []
         if not os.path.isdir(MOVIES_DIR):
             return items
-        for name in sorted(os.listdir(MOVIES_DIR)):
-            path = os.path.join(MOVIES_DIR, name)
-            if os.path.isdir(path):
-                items.append({
-                    "id": MovieRepository._slug(name),
-                    "title": name
-                })
+        for path in sorted(MOVIES_DIR.iterdir(), key=lambda p: p.name.lower()):
+            if not path.is_dir():
+                continue
+            movie_id = MovieRepository._slug(path.name)
+            metadata = MovieRepository._load_metadata_file(path / "metadata.json", movie_id)
+            item = {
+                "id": movie_id,
+                "title": metadata.get("title") or path.name,
+            }
+            if include_metadata:
+                item["metadata"] = metadata
+            items.append(item)
         return items
 
     @staticmethod
-    def search_movies(q):
-        if not q:
-            return []
+    def search_movies(q: str, include_metadata: bool = False) -> List[Dict[str, Any]]:
+        if not q or not q.strip():
+            return MovieRepository.list_movies(include_metadata=include_metadata)
         q = q.strip().lower()
         results = []
-        for m in MovieRepository.list_movies():
-            title = (m.get("title") or "").lower()
+        for movie in MovieRepository.list_movies(include_metadata=include_metadata):
+            title = (movie.get("title") or "").lower()
             if q in title:
-                results.append(m)
+                results.append(movie)
         return results
 
     @staticmethod
@@ -125,6 +130,15 @@ class MovieRepository:
 
 
 class ReviewRepository:
+    @staticmethod
+    def _review_path(movie_id: str) -> Path:
+        try:
+            movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        except FileNotFoundError:
+            movie_dir = MOVIES_DIR / movie_id
+            movie_dir.mkdir(parents=True, exist_ok=True)
+        return movie_dir / "user_reviews.json"
+
     @staticmethod
     def get_review_data(movie_id: str) -> Dict[str, Any]:
         # find review data path by resolving the movie directory
