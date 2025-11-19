@@ -1,8 +1,17 @@
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, Tuple, List
 
-from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+# Prefer backend.* schema types (matches tests' imports); fall back to local.
+try:  # pragma: no cover
+    from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut  # type: ignore
+except ImportError:  # pragma: no cover
+    from schemas.review import ReviewCreate, ReviewUpdate, ReviewOut  # type: ignore
+
+# Prefer local repositories so pytest monkeypatches against repositories.* apply; fall back to backend.*.
+try:  # pragma: no cover
+    from repositories.movie_repo import MovieRepository, ReviewRepository  # type: ignore
+except ImportError:  # pragma: no cover
+    from backend.repositories.movie_repo import MovieRepository, ReviewRepository  # type: ignore
 
 
 class ReviewService:
@@ -14,21 +23,27 @@ class ReviewService:
 
         #Check if user already has a review for the movie
         current = review_data["reviews"].get(user_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
+
+        rating_total = float(metadata.get("userRatingTotal", 0.0))
+        rating_count = int(metadata.get("userRatingCount", 0))
 
         if current:
             # get rid of/update old reviews metadata
-            old_rating = current["rating"]
-            metadata["userRatingTotal"] -= old_rating
+            rating_total -= float(current["rating"])
         else:
             # add total review count when review is created
-            metadata["userRatingCount"] += 1
+            rating_count += 1
 
         #add and update rating
-        metadata["userRatingTotal"] += review.rating
+        rating_total += float(review.rating)
+        rating_total = max(rating_total, 0.0)
+
+        metadata["userRatingTotal"] = round(rating_total, 3)
+        metadata["userRatingCount"] = rating_count
         metadata["userRatingAverage"] = round(
-            metadata["userRatingTotal"] / metadata["userRatingCount"], 2
-        )
+            rating_total / rating_count, 2
+        ) if rating_count else 0.0
 
         #create new, updated review
         updated_review = {
@@ -69,12 +84,12 @@ class ReviewService:
         current = review_data["reviews"][user_id]
 
         #subtract the user rating from total and update metadata
-        metadata["userRatingTotal"] -= current["rating"]
-        metadata["userRatingCount"] -= 1
-        metadata["userRatingAverage"] = (
-            round(metadata["userRatingTotal"] / metadata["userRatingCount"], 2)
-            if metadata["userRatingCount"] > 0 else 0.0
-        )
+        rating_total = float(metadata.get("userRatingTotal", 0.0)) - float(current["rating"])
+        rating_total = max(rating_total, 0.0)
+        rating_count = max(int(metadata.get("userRatingCount", 0)) - 1, 0)
+        metadata["userRatingTotal"] = round(rating_total, 3)
+        metadata["userRatingCount"] = rating_count
+        metadata["userRatingAverage"] = round(rating_total / rating_count, 2) if rating_count else 0.0
 
         # remove review
         del review_data["reviews"][user_id]
@@ -83,31 +98,17 @@ class ReviewService:
         ReviewRepository.save_review_data(movie_id, review_data)
         MovieRepository.save_movie_metadata(movie_id, metadata)
 
-    def get_reviews_by_user_id(self, user_id: str) -> List[ReviewOut]:
-        """
-        Return all reviews authored by a given user_id,
-        aggregated across all movies.
-        """
+    def get_reviews_by_user_id(self, user_id: str) -> Tuple[List[ReviewOut], List[str]]:
+        """Return all reviews written by a user across all movies."""
         reviews: List[ReviewOut] = []
-        movies: List[str] = []
-        # Get all existing movies from the repo
-        all_movies = MovieRepository.list_movies()
-        
-        for movie in all_movies:
-            movie_id = movie['id']
+        movie_ids: List[str] = []
 
-            try:
-                review_data = ReviewRepository.get_review_data(movie_id)
-            except Exception as e:
-                print(f"Warning: could not read reviews for {movie_id}: {e}")
-                continue
+        for movie in MovieRepository.list_movies():
+            movie_id = movie["id"]
+            review_data = ReviewRepository.get_review_data(movie_id)
+            user_review = review_data.get("reviews", {}).get(user_id)
+            if user_review:
+                reviews.append(ReviewOut(**user_review))
+                movie_ids.append(movie_id)
 
-            if not review_data or "reviews" not in review_data:
-                continue
-
-            # Each movie stores reviews keyed by user_id
-            if user_id in review_data["reviews"]:
-                reviews.append(ReviewOut(**review_data["reviews"][user_id]))
-                movies.append(movie_id)
-
-        return reviews, movies
+        return reviews, movie_ids

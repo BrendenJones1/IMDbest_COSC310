@@ -1,10 +1,21 @@
 {
+  "reviews": {
     "6b3a2d50-73f9-4d52-8a3a-2c3f4c9091e2": {
-        "rating": 9,
-        "review_text": "Amazing movie with epic moments!",
-        "upvotes": 0,
-        "downvotes": 0,
-        "created_at": "2025-11-17T23:11:09.667345",
-        "updated_at": "2025-11-17T23:11:09.667351"
+      "rating": 9,
+      "review_text": "Amazing movie with epic moments!",
+      "upvotes": 0,
+      "downvotes": 0,
+      "created_at": "2025-11-11T19:26:30.809143",
+      "updated_at": "2025-11-11T19:26:30.809156"
+    },
+    "user-1": {
+      "user_id": "user-1",
+      "rating": 4.5,
+      "review_text": "Great",
+      "upvotes": 0,
+      "downvotes": 0,
+      "created_at": "2025-11-17T03:19:19.558519+00:00",
+      "updated_at": "2025-11-17T03:24:21.696152+00:00"
     }
+  }
 }
