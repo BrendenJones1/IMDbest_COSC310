@@ -124,7 +124,7 @@ def test_register_duplicate_email(client):
 def test_login_nonexistent_username(client):
     res = client.post("/users/login", params={"username": "ghost", "password": "pw"})
     assert res.status_code == 401
-    assert "invalid" in res.text.lower()
+    assert "incorrect" in res.text.lower()
 
 # --- SEARCH: by email and role ---
 def test_search_users_by_email_and_role(client):
