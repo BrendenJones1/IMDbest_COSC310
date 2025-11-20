@@ -91,7 +91,6 @@ def test_search_users_by_username(client):
     client.post("/users/register", json={"username": "Bob", "email": "b@x.com", "password": "pw"})
 
     res = client.get("/users/search", params={"username": "bob"})
-    print("DEBUG RESPONSE:", res.status_code, res.text)
     assert res.status_code == 200
 
 

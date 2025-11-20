@@ -73,14 +73,14 @@ class UserService:
             user = self._internal_get_user(username)
         except HTTPException:
         # normalize to auth error so we don’t leak “user not found”
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="Username or password incorrect")
 
         if not verify_password(password, user["password_hash"]):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="Username or password incorrect")
 
         token = create_access_token(sub=user["id"], role=user["role"])
-        # you can wrap user in UserPublic if you prefer
-        return {"token": token, "user": user}
+
+        return {"token": token, "user": UserPublic(**user)}
 
     # ---------------------------------
     #   GET USER
