@@ -5,6 +5,7 @@ from backend.services.users_service import user_service as users_service
 from backend.routers import users_router
 from backend.schemas.user import UserCreate
 from backend.utils.security import create_access_token
+from datetime import datetime
 import sys
 
 # Ensure only the canonical import path exists
@@ -34,6 +35,34 @@ def client(monkeypatch):
     app.include_router(users_router.router)
 
     return TestClient(app)
+
+
+def test_register_response_has_registered_at(client):
+    """
+    Ensure the /users/register endpoint includes a registered_at field
+    and that it is a valid ISO 8601 datetime string.
+    """
+    resp = client.post(
+        "/users/register",
+        json={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "AnotherSecret123!",
+        },
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "user" in body
+    user = body["user"]
+
+    assert "registered_at" in user, "registered_at missing from API response"
+    assert user["registered_at"] is not None
+
+    # Parse to ensure it's a valid datetime
+    parsed = datetime.fromisoformat(user["registered_at"])
+    assert isinstance(parsed, datetime)
+
 
 class DummyUser:
 
