@@ -9,15 +9,21 @@ from services.review_service import ReviewService
 
 @pytest.fixture()
 def movies_dir(tmp_path, monkeypatch):
+    """
+    Provide an isolated movies directory and point the repository to it for each test.
+    """
     base = tmp_path / "movies"
     base.mkdir()
     monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", base, raising=False)
-    # the classes in movie_repo reference the module-level constant directly
+    # Classes in movie_repo use the module-level MOVIES_DIR constant directly
     monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
     return base
 
 
 def create_movie_directory(movies_dir, title="Sample Movie"):
+    """
+    Create a minimal on-disk movie folder with metadata and return its slug id.
+    """
     movie_dir = movies_dir / title
     movie_dir.mkdir()
     (movie_dir / "metadata.json").write_text(json.dumps({"title": title}), encoding="utf-8")
@@ -25,9 +31,13 @@ def create_movie_directory(movies_dir, title="Sample Movie"):
 
 
 def test_upsert_review_tracks_average_and_totals(movies_dir):
+    """
+    upsert_review should keep rating count, total, and average in sync as reviews change.
+    """
     movie_id = create_movie_directory(movies_dir, "Thor Ragnarok")
     service = ReviewService()
 
+    # First review initializes metadata aggregates
     first = service.upsert_review("user-1", movie_id, ReviewCreate(rating=4.5, review_text="Great"))
     assert first.rating == 4.5
 
@@ -36,12 +46,14 @@ def test_upsert_review_tracks_average_and_totals(movies_dir):
     assert metadata["userRatingTotal"] == pytest.approx(4.5)
     assert metadata["userRatingAverage"] == pytest.approx(4.5)
 
+    # Second distinct user review increases count and adjusts average
     service.upsert_review("user-2", movie_id, ReviewCreate(rating=2.0))
     metadata = MovieRepository.get_movie_metadata(movie_id)
     assert metadata["userRatingCount"] == 2
     assert metadata["userRatingTotal"] == pytest.approx(6.5)
     assert metadata["userRatingAverage"] == pytest.approx(3.25)
 
+    # Updating an existing user's review should not change count, only totals/average
     service.upsert_review("user-1", movie_id, ReviewCreate(rating=5.0))
     metadata = MovieRepository.get_movie_metadata(movie_id)
     assert metadata["userRatingCount"] == 2
@@ -50,6 +62,9 @@ def test_upsert_review_tracks_average_and_totals(movies_dir):
 
 
 def test_delete_review_updates_metadata(movies_dir):
+    """
+    Deleting a review should update rating aggregates and remove the review entry.
+    """
     movie_id = create_movie_directory(movies_dir, "The Dark Knight")
     service = ReviewService()
 

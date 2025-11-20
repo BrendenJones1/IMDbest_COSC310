@@ -1,13 +1,18 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from security import decode_token
-from typing import TypedDict
 from backend.services import users_service as user_service
-from backend.schemas import CurrentUser
+from backend.schemas.user import CurrentUser
 
 auth_scheme = HTTPBearer(auto_error=True)
 
-def get_current_user(token: HTTPAuthorizationCredentials = Depends(auth_scheme)) -> CurrentUser:
+
+def get_current_user(
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+) -> CurrentUser:
+    """
+    Decode the bearer token, validate it against the stored user, and return current user claims.
+    """
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -23,15 +28,22 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(auth_scheme))
         if user is None:
             raise credentials_error
 
-        # 🔑 KEY PART: if versions don't match, treat token as invalid
+        # Treat tokens with mismatched versions as invalid
         if user.token_version != token_version:
             raise credentials_error
-        
+
         return {"username": username, "role": role, "token_version": token_version}
     except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
 
 def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """
+    Enforce that the current user has admin role, or raise 403.
+    """
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user

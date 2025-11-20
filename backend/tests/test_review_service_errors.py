@@ -6,6 +6,9 @@ from backend.schemas.review import ReviewCreate
 
 
 def test_upsert_review_nonexistent_movie_raises_404():
+    """
+    upsert_review should raise a 404 error when the movie does not exist.
+    """
     service = ReviewService()
     with pytest.raises(HTTPException) as exc:
         service.upsert_review(
@@ -18,6 +21,9 @@ def test_upsert_review_nonexistent_movie_raises_404():
 
 
 def test_delete_review_nonexistent_movie_is_404():
+    """
+    delete_user_review should raise a 404 error when the movie does not exist.
+    """
     service = ReviewService()
     with pytest.raises(HTTPException) as exc:
         service.delete_user_review(user_id="u1", movie_id="missing-movie")
@@ -26,6 +32,9 @@ def test_delete_review_nonexistent_movie_is_404():
 
 
 def test_get_review_nonexistent_movie_is_404():
+    """
+    get_user_review should raise a 404 error when the movie does not exist.
+    """
     service = ReviewService()
     with pytest.raises(HTTPException) as exc:
         service.get_user_review(user_id="u1", movie_id="another-missing")

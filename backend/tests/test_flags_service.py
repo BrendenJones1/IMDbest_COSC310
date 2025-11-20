@@ -4,10 +4,14 @@ from unittest import mock
 
 from backend.services.flags_service import FlagsService
 
+
 def test_add_and_update_flag():
+    """
+    Verify a flag can be created in a temp store and have its status updated.
+    """
     tmpfile = os.path.join(tempfile.gettempdir(), "flags_test.json")
     service = FlagsService()
-    service.file = tmpfile  # redirect to temp file
+    service.file = tmpfile  # redirect backing file to an isolated temp path
     service._save([])
 
     flag = service.add_flag(review_id=2, flagger_id=5, flagged_user_id=8, reason="spam")
@@ -18,6 +22,9 @@ def test_add_and_update_flag():
 
 
 def test_update_flag_status_with_mock(monkeypatch, tmp_path):
+    """
+    Verify update_flag_status mutates the correct flag and persists via the save hook.
+    """
     service = FlagsService(str(tmp_path / "flags.json"))
 
     in_memory_flags = [

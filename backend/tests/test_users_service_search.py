@@ -5,7 +5,9 @@ from backend.schemas.user import UserCreate
 
 @pytest.fixture
 def memory_store(monkeypatch):
-    """Shared in-memory store patched into the service."""
+    """
+    Provide a shared in-memory users store patched into the UserService repository.
+    """
     store = []
 
     def fake_load_users():
@@ -19,12 +21,11 @@ def memory_store(monkeypatch):
     return store
 
 
-# ---------------------------------------------------------------------
-#  Pure search unit tests 
-# ---------------------------------------------------------------------
-
 @pytest.fixture
 def sample_users(memory_store):
+    """
+    Seed the in-memory store with a small set of users for pure search tests.
+    """
     memory_store[:] = [
         {"id": "1", "username": "Alice", "email": "a@x.com", "role": "admin"},
         {"id": "2", "username": "Bob", "email": "b@x.com", "role": "user"},
@@ -34,31 +35,36 @@ def sample_users(memory_store):
 
 
 def test_search_by_username_exact(sample_users):
+    """
+    search_users should return a single exact match when username matches exactly.
+    """
     results = users_service.search_users(username="Bob")
     assert len(results) == 1
     assert results[0]["username"] == "Bob"
 
 
 def test_search_by_username_case_insensitive(sample_users):
+    """
+    search_users should perform case-insensitive matching on username.
+    """
     results = users_service.search_users(username="bob")
     assert len(results) == 1
     assert results[0]["username"] == "Bob"
 
-# ---------------------------------------------------------------------
-#  Edge case with empty data
-# ---------------------------------------------------------------------
 
 def test_search_empty_db(monkeypatch):
+    """
+    When the user store is empty, search_users should return an empty list.
+    """
     monkeypatch.setattr(users_service.user_repo, "load_users", lambda: [])
     results = users_service.search_users(username="bob")
     assert results == []
 
-# ---------------------------------------------------------------------
-#  Integration: register + search
-# ---------------------------------------------------------------------
 
 def test_register_then_search_single_user(memory_store):
-    """Register a user and confirm they appear in search results."""
+    """
+    Registering a user should make them discoverable via search_users.
+    """
     payload = UserCreate(username="Dora", email="d@x.com", password="pw")
     res = users_service.register(payload)
     assert isinstance(res, dict)
@@ -71,6 +77,9 @@ def test_register_then_search_single_user(memory_store):
 
 
 def test_register_multiple_and_search_case_insensitive(memory_store):
+    """
+    After registering multiple users, search_users should still match by username case-insensitively.
+    """
     users_service.register(UserCreate(username="Eve", email="e@x.com", password="pw"))
     users_service.register(UserCreate(username="Frank", email="f@x.com", password="pw"))
     users_service.register(UserCreate(username="Grace", email="g@x.com", password="pw"))
@@ -79,21 +88,23 @@ def test_register_multiple_and_search_case_insensitive(memory_store):
     assert len(results) == 1
     assert results[0]["username"] == "Frank"
 
+
 def test_search_after_updates(memory_store):
-    """Update a user and verify search reflects new username/email."""
-    # register first user
+    """
+    Updating a user's username and email should be reflected in subsequent searches.
+    """
     payload = UserCreate(username="Henry", email="h@x.com", password="pw")
     users_service.register(payload)
     user_id = memory_store[0]["id"]
 
-    # update username and email
-    users_service.update_user(user_id, payload.__class__(username="Hank", email="hank@x.com", password="pw"))
+    users_service.update_user(
+        user_id,
+        payload.__class__(username="Hank", email="hank@x.com", password="pw"),
+    )
 
-    # search by new username
     results = users_service.search_users(username="Hank")
     assert len(results) == 1
     assert results[0]["username"] == "Hank"
 
-    # old name should no longer match
     results_old = users_service.search_users(username="Henry")
     assert results_old == []

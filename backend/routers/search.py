@@ -13,5 +13,8 @@ def do_search(
     sort_by: SortField = SortField.TITLE,
     sort_order: SortOrder = SortOrder.ASC,
 ):
+    """
+    Perform a movie search with optional pagination and sorting parameters.
+    """
     items = search(q, limit=limit, sort_by=sort_by, sort_order=sort_order)
-    return {"items": items, "total": len(items)}
+    return {"items": items, "total": len(items)}  # include both results and count in the response

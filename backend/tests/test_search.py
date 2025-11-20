@@ -11,12 +11,19 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def movie_dataset(tmp_path, monkeypatch):
+    """
+    Seed an isolated movies directory with a small test dataset for each test.
+    """
     movies_dir = tmp_path / "movies"
     movies_dir.mkdir()
+    # Ensure both the module and its consumers see the same temporary MOVIES_DIR
     monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", movies_dir, raising=False)
     monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", movies_dir, raising=False)
 
     def write_movie(title, imdb_rating, user_rating, date_published):
+        """
+        Create a single movie folder with a metadata.json entry.
+        """
         movie_dir = movies_dir / title
         movie_dir.mkdir()
         metadata = {
@@ -35,6 +42,9 @@ def movie_dataset(tmp_path, monkeypatch):
 
 
 def test_search_structure():
+    """
+    Search endpoint returns a structured payload with items and total count.
+    """
     r = client.get("/search?q=a&limit=5")
     assert r.status_code == 200
     data = r.json()
@@ -47,12 +57,18 @@ def test_search_structure():
 
 
 def test_default_sort_is_title_ascending():
+    """
+    By default, search results should be sorted by title in ascending order.
+    """
     r = client.get("/search?q=&limit=3")
     titles = [item["title"] for item in r.json()["items"]]
     assert titles == sorted(titles)
 
 
 def test_sort_by_imdb_rating_desc():
+    """
+    Sorting by imdb_rating=desc should place the highest-rated movie first.
+    """
     r = client.get("/search?q=&sort_by=imdb_rating&sort_order=desc")
     titles = [item["title"] for item in r.json()["items"]]
     assert titles[0] == "Charlie Tale"
