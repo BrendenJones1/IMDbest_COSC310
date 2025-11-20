@@ -22,6 +22,67 @@ def clean_users(monkeypatch):
 
     return store
 
+class DummyUser:
+    def __init__(self, username: str, token_version: int = 0):
+        self.username = username
+        self.token_version = token_version
+
+
+def test_save_user_updates_existing_user_token_version(clean_users):
+    """
+    - Uses the autouse fixture (mocking load/save users).
+    - Demonstrates case-insensitive and trimmed username matching
+      (equivalence partitioning over username representations).
+    """
+    store = clean_users
+
+    # Existing stored user
+    existing = DummyUser(" Alice ", token_version=0)
+    store.append(existing)
+
+    # Payload with different case + extra spaces
+    payload = DummyUser("  alice  ", token_version=5)
+
+    users_service.save_user(payload)
+
+    # The same object in the store should now have updated token_version
+    assert existing.token_version == 5
+    assert len(store) == 1  # no extra users added
+
+def test_save_user_raises_for_unknown_user(clean_users):
+    """
+    - Tests exception handling: when no matching user exists,
+      save_user should raise ValueError.
+    """
+    payload = DummyUser("ghost", token_version=1)
+
+    with pytest.raises(ValueError) as exc:
+        users_service.save_user(payload)
+
+    assert "User ghost not found" in str(exc.value)
+
+
+def test_save_user_propagates_save_error(clean_users, monkeypatch):
+    """
+    - Fault injection: we force user_repo.save_users to fail
+      and assert that the error is propagated.
+    """
+    store = clean_users
+    store.append(DummyUser("bob", token_version=1))
+
+    # Inject a failure into save_users
+    def boom(data):
+        raise IOError("disk full")
+
+    monkeypatch.setattr(users_service.user_repo, "save_users", boom)
+
+    payload = DummyUser("bob", token_version=2)
+
+    with pytest.raises(IOError) as exc:
+        users_service.save_user(payload)
+
+    assert "disk full" in str(exc.value)
+
 def test_register_success():
     token = users_service.register(UserCreate(
         username="Alice",

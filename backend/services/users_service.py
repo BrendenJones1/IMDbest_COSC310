@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 
 from fastapi import HTTPException, status
 
-from schemas.user import UserCreate, UserUpdate, UserPublic, User
+from schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
 from utils.security import hash_password, verify_password, create_access_token
 
 from backend.repositories.users_repo import UserRepository, user_repository
@@ -33,6 +33,26 @@ class UserService:
         return [UserPublic(**it) for it in (self.user_repo.load_users() or [])]
 
     # ---------------------------------
+    #   SAVE USER
+    # ---------------------------------
+    def save_user(self, payload: CurrentUser) -> None:
+        users = self.user_repo.load_users() or []
+
+        target_username = payload.username.strip().lower()
+        updated = False
+
+        for user in users:
+            if user.username.strip().lower() == target_username:
+                user.token_version = payload.token_version
+                updated = True
+                break
+
+        if not updated:
+            raise ValueError(f"User {payload.username} not found")
+
+        self.user_repo.save_users(users)
+
+    # ---------------------------------
     #   REGISTRATION/LOGIN
     # ---------------------------------
     def register(self, payload: UserCreate) -> Dict[str, Any]:
@@ -60,12 +80,13 @@ class UserService:
             penalties=[],
             reviews=[],
             watchlist=[],
+            token_version=0
         ).model_dump()
 
         users.append(new_user)
         self.user_repo.save_users(users)
 
-        token = create_access_token(new_user["id"], new_user["role"])
+        token = create_access_token(new_user["id"], new_user["role"], new_user["token_version"])
         return {"token": token, "user": UserPublic(**new_user)}
 
     def login(self, username: str, password: str) -> Dict[str, Any]:
@@ -78,7 +99,7 @@ class UserService:
         if not verify_password(password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Username or password incorrect")
 
-        token = create_access_token(sub=user["id"], role=user["role"])
+        token = create_access_token(sub=user["id"], role=user["role"], token_version=user["token_version"])
 
         return {"token": token, "user": UserPublic(**user)}
 

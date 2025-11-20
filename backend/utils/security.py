@@ -22,12 +22,13 @@ def verify_password(pw: str, hashed: str) -> bool:
     return bcrypt.checkpw(pw.encode(), hashed.encode())
 
 
-def create_access_token(sub: str, role: str) -> str:
+def create_access_token(sub: str, role: str, token_version: int=0) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode = {
         "sub": sub,
-        "role": role,
+        "role": role,        
+        "token_version": token_version,
         "exp": expire 
     }
 

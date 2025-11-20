@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, TypedDict
 from pydantic import BaseModel, Field
 
 class User(BaseModel):
@@ -10,6 +10,7 @@ class User(BaseModel):
     penalties: List[str]
     reviews: List[str]
     watchlist: List[str]
+    token_version: int=0
 
 class UserCreate(BaseModel):
     username: str
@@ -31,3 +32,8 @@ class UserPublic(BaseModel):
     email: str
     reviews: list = Field(default_factory=list)
     watchlist: list = Field(default_factory=list)
+
+class CurrentUser(TypedDict):
+    username: str
+    role: str
+    token_version: int
