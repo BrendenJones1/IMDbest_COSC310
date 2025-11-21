@@ -150,7 +150,7 @@ class ReviewService:
 
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
         self._ensure_movie_exists(movie_id)
-        # get reviews
+        # get reviews   
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for this movie: if not return, if they do continue
         if user_id not in review_data["reviews"]:
