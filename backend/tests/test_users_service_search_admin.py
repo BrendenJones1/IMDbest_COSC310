@@ -1,5 +1,6 @@
 import pytest
 from backend.services.users_service import user_service as users_service
+from contextlib import contextmanager
 
 
 @pytest.fixture

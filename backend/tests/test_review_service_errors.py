@@ -3,6 +3,7 @@ from fastapi import HTTPException
 
 from backend.services.review_service import ReviewService
 from backend.schemas.review import ReviewCreate
+from contextlib import contextmanager
 
 
 def test_upsert_review_nonexistent_movie_raises_404():

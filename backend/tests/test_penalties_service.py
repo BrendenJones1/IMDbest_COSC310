@@ -1,5 +1,6 @@
 import pytest
 from backend.services.penalties_service import PenaltiesService
+from contextlib import contextmanager
 
 
 @pytest.fixture()

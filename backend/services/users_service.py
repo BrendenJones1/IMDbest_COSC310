@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Dict, Any
 from datetime import datetime
-
+from contextlib import contextmanager
 from fastapi import HTTPException, status
 
 from schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
@@ -44,22 +44,32 @@ class UserService:
     def save_user(self, payload: CurrentUser) -> None:
         """
         Persist changes to a current user payload (e.g., updated token_version) back to storage.
+        Works with both dict-based users (real JSON) and DummyUser objects (tests).
         """
-        users = self.user_repo.load_users() or []
+        with self.user_repo.transaction() as users:
+            target_username = payload.username.strip().lower()
+            updated = False
 
-        target_username = payload.username.strip().lower()
-        updated = False
+            for u in users:
+                # Get username from either dict or object
+                if isinstance(u, dict):
+                    uname = str(u.get("username", ""))
+                else:
+                    uname = str(getattr(u, "username", ""))
 
-        for user in users:
-            if user.username.strip().lower() == target_username:
-                user.token_version = payload.token_version
-                updated = True
-                break
+                if uname.strip().lower() == target_username:
+                    # Set token_version on either dict or object
+                    if isinstance(u, dict):
+                        u["token_version"] = payload.token_version
+                    else:
+                        setattr(u, "token_version", payload.token_version)
+                    updated = True
+                    break
 
-        if not updated:
-            raise ValueError(f"User {payload.username} not found")
+            if not updated:
+                # raising inside the transaction block prevents save_users from being called
+                raise ValueError(f"User {payload.username} not found")
 
-        self.user_repo.save_users(users)
 
     # ---------------------------------
     #   REGISTRATION/LOGIN
@@ -68,36 +78,40 @@ class UserService:
         """
         Register a new user, enforcing unique username and email, and issue an access token.
         """
-        users = self.user_repo.load_users() or []
         new_id = str(uuid.uuid4())
 
-        if any(it.get("id") == new_id for it in users):
-            raise HTTPException(status_code=409, detail="ID collision; retry.")
+        with self.user_repo.transaction() as users:
+            # ID collision check
+            if any(it.get("id") == new_id for it in users):
+                raise HTTPException(status_code=409, detail="ID collision; retry.")
 
-        if any(it.get("username").lower() == payload.username.strip().lower() for it in users):
-            raise HTTPException(status_code=409, detail="Username taken.")
+            username = payload.username.strip()
+            email = payload.email.strip()
 
-        if any(it.get("email").lower() == payload.email.strip().lower() for it in users):
-            raise HTTPException(status_code=409, detail="Email in use.")
+            # Unique username/email checks
+            if any(str(it.get("username", "")).lower() == username.lower() for it in users):
+                raise HTTPException(status_code=409, detail="Username taken.")
 
-        is_first_user = len(users) == 0
-        role = "admin" if is_first_user else "user"
+            if any(str(it.get("email", "")).lower() == email.lower() for it in users):
+                raise HTTPException(status_code=409, detail="Email in use.")
 
-        new_user = User(
-            id=new_id,
-            username=payload.username.strip(),
-            email=payload.email.strip(),
-            password_hash=hash_password(payload.password),
-            role=role,
-            penalties=[],
-            reviews=[],
-            watchlist=[],
-            token_version=0,
-            registered_at=datetime.utcnow(),
-        ).model_dump()
+            is_first_user = len(users) == 0
+            role = "admin" if is_first_user else "user"
 
-        users.append(new_user)
-        self.user_repo.save_users(users)
+            new_user = User(
+                id=new_id,
+                username=username,
+                email=email,
+                password_hash=hash_password(payload.password),
+                role=role,
+                penalties=[],
+                reviews=[],
+                watchlist=[],
+                token_version=0,
+                registered_at=datetime.utcnow(),
+            ).model_dump(mode="json")
+
+            users.append(new_user)
 
         token = create_access_token(new_user["id"], new_user["role"], new_user["token_version"])
         return {"token": token, "user": UserPublic(**new_user)}
@@ -164,55 +178,55 @@ class UserService:
         """
         Apply partial updates to a user profile, respecting uniqueness and password hashing rules.
         """
-        users = self.user_repo.load_users() or []
+        with self.user_repo.transaction() as users:
+            for idx, it in enumerate(users):
+                if it["id"] == user_id:
+                    stored = User(**it)
+                    update_data = payload.model_dump(exclude_unset=True)
 
-        for idx, it in enumerate(users):
-            if it["id"] == user_id:
-                stored = User(**it)
-                update_data = payload.model_dump(exclude_unset=True)
+                    # Unique username validation
+                    if "username" in update_data:
+                        update_data["username"] = update_data["username"].strip()
+                        if any(
+                            u["username"].lower() == update_data["username"].lower()
+                            and u["id"] != user_id
+                            for u in users
+                        ):
+                            raise HTTPException(status_code=409, detail="Username taken.")
 
-                # Unique username validation
-                if "username" in update_data:
-                    update_data["username"] = update_data["username"].strip()
-                    if any(
-                        u["username"].lower() == update_data["username"].lower()
-                        and u["id"] != user_id
-                        for u in users
-                    ):
-                        raise HTTPException(status_code=409, detail="Username taken.")
+                    # Unique email validation
+                    if "email" in update_data:
+                        update_data["email"] = update_data["email"].strip()
+                        if any(
+                            u["email"].lower() == update_data["email"].lower()
+                            and u["id"] != user_id
+                            for u in users
+                        ):
+                            raise HTTPException(status_code=409, detail="Email in use.")
 
-                # Unique email validation
-                if "email" in update_data:
-                    update_data["email"] = update_data["email"].strip()
-                    if any(
-                        u["email"].lower() == update_data["email"].lower()
-                        and u["id"] != user_id
-                        for u in users
-                    ):
-                        raise HTTPException(status_code=409, detail="Email in use.")
+                    # Secure password handling
+                    if "password" in update_data:
+                        update_data["password_hash"] = hash_password(
+                            update_data.pop("password")
+                        )
 
-                # Secure password handling
-                if "password" in update_data:
-                    update_data["password_hash"] = hash_password(
-                        update_data.pop("password")
-                    )
+                    updated = stored.model_copy(update=update_data)
+                    users[idx] = updated.model_dump()
+                    return UserPublic(**updated.model_dump())
 
-                updated = stored.model_copy(update=update_data)
-                users[idx] = updated.model_dump()
-                self.user_repo.save_users(users)
-                return UserPublic(**updated.model_dump())
-
+        # if we exit the with-block with no return, user not found
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
     def delete_user(self, user_id: str) -> None:
         """
         Permanently remove a user record by id.
         """
-        users = self.user_repo.load_users() or []
-        new_users = [it for it in users if it.get("id") != user_id]
-        if len(new_users) == len(users):
-            raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
-        self.user_repo.save_users(new_users)
+        with self.user_repo.transaction() as users:
+            before = len(users)
+            users[:] = [it for it in users if it.get("id") != user_id]
+            if len(users) == before:
+                raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+
 
     # ---------------------------------
     #   SEARCH USERS
@@ -269,30 +283,28 @@ class UserService:
         Promote a user to the admin role, handling persistence and basic error cases.
         """
         try:
-            users = self.user_repo.load_users() or []
+            with self.user_repo.transaction() as users:
+                for u in users:
+                    if u["id"] == user_id:
+                        if u.get("role") == "admin":
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="User already an admin",
+                            )
+                        u["role"] = "admin"
+                        return u
+        except HTTPException:
+            # business errors just bubble up
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to load users: {e}")
-
-        for u in users:
-            if u["id"] == user_id:
-                if u.get("role") == "admin":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="User already an admin",
-                    )
-                u["role"] = "admin"
-                try:
-                    self.user_repo.save_users(users)
-                except Exception as e:
-                    raise HTTPException(
-                        status_code=500, detail=f"Failed to save users: {e}"
-                    )
-                return u
+            # repo/load/save problems
+            raise HTTPException(status_code=500, detail=f"Failed to persist users: {e}")
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{user_id}' not found",
         )
+
 
     # ---------------------------------
     #   REVIEW MANAGEMENT
@@ -315,14 +327,16 @@ class UserService:
         Refresh the reviews snapshot stored on a user record from the review service.
         """
         reviews, _ = self.review_service.get_reviews_by_user_id(user_id)
-        users = self.user_repo.load_users() or []
+        review_payload = [r.model_dump() for r in reviews]
 
-        for u in users:
-            if u["id"] == user_id:
-                u["reviews"] = [r.model_dump() for r in reviews]
-                break
+        with self.user_repo.transaction() as users:
+            for u in users:
+                if u["id"] == user_id:
+                    u["reviews"] = review_payload
+                    return
 
-        self.user_repo.save_users(users)
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+
 
     # ---------------------------------
     #   PENALTY MANAGEMENT
@@ -344,22 +358,22 @@ class UserService:
             source_flag_id=flag_id,
         )
 
-        users = self.user_repo.load_users() or []
-        for u in users:
-            if u["id"] == user_id:
-                if "penalties" not in u:
-                    u["penalties"] = []
-                u["penalties"].append(new_penalty)
-                break
+        with self.user_repo.transaction() as users:
+            for u in users:
+                if u["id"] == user_id:
+                    u.setdefault("penalties", []).append(new_penalty)
+                    break
+            # (current behaviour: no error if user_id missing)
 
-        self.user_repo.save_users(users)
         return new_penalty
+
 
     def get_user_penalties(self, user_id: str) -> list[dict]:
         """
         Return all penalties associated with a given user.
         """
         return self.penalty_service.get_for_user(user_id)
+
 
     def deactivate_penalty(self, penalty_id: int, admin_id: str) -> dict | None:
         """
@@ -372,16 +386,13 @@ class UserService:
         if not updated_penalty:
             return None
 
-        users = self.user_repo.load_users() or []
-        for u in users:
-            if "penalties" in u:
-                for p in u["penalties"]:
+        with self.user_repo.transaction() as users:
+            for u in users:
+                if "penalties" in u:
+                    for p in u["penalties"]:
+                        if p["penalty_id"] == penalty_id:
+                            p.update(updated_penalty)
 
-
-                    if p["penalty_id"] == penalty_id:
-                        p.update(updated_penalty)
-
-        self.user_repo.save_users(users)
         return updated_penalty
 
     # ---------------------------------

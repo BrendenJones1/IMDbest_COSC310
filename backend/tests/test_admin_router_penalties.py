@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.utils.security import create_access_token
+from contextlib import contextmanager
 
 client = TestClient(app)
 

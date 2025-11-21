@@ -4,6 +4,7 @@ from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
 from datetime import datetime
+from contextlib import contextmanager
 
 
 @pytest.fixture(autouse=True)

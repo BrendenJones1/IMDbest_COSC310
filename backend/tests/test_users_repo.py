@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from contextlib import contextmanager
 
 from backend.repositories.users_repo import UserRepository
 

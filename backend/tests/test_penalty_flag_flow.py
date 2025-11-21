@@ -1,5 +1,6 @@
 from backend.services.flags_service import FlagsService
 from backend.services.penalties_service import PenaltiesService
+from contextlib import contextmanager
 
 
 def test_flag_to_penalty_workflow():

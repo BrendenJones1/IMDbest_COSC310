@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from backend.services import watchlist_service as wl
+from contextlib import contextmanager
+
 
 TEST_PATH = Path(__file__).resolve().parents[1] / "data" / "watchlist.json"
 

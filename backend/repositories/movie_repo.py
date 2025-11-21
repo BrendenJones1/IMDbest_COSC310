@@ -1,12 +1,18 @@
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
+from threading import RLock  # NEW: for repo-level concurrency
 
 # Absolute path to the movie data directory that ships with the backend
 MOVIES_DIR = Path(__file__).resolve().parents[1] / "data" / "movies"
 
 # Ensure the directory exists so tests can point this somewhere else
 MOVIES_DIR.mkdir(parents=True, exist_ok=True)
+
+# NEW: locks to protect movie metadata and review files
+_MOVIE_METADATA_LOCK = RLock()
+_REVIEW_DATA_LOCK = RLock()
 
 
 class MovieRepository:
@@ -89,13 +95,16 @@ class MovieRepository:
     def get_movie_metadata(movie_id: str) -> Dict[str, Any]:
         """
         Load stored metadata for a movie and ensure rating fields are always present.
+        Protected by a lock to avoid concurrent read/write races.
         """
         metadata_path = MovieRepository._metadata_path(movie_id)
-        if not metadata_path.exists():
-            metadata = {}
-        else:
-            with metadata_path.open() as f:
-                metadata = json.load(f)
+
+        with _MOVIE_METADATA_LOCK:
+            if not metadata_path.exists():
+                metadata = {}
+            else:
+                with metadata_path.open("r", encoding="utf-8") as f:
+                    metadata = json.load(f)
 
         metadata.setdefault("movie_id", movie_id)
         metadata.setdefault("userRatingCount", 0)
@@ -107,11 +116,16 @@ class MovieRepository:
     def save_movie_metadata(movie_id: str, metadata: Dict[str, Any]) -> None:
         """
         Persist metadata for a movie to its on-disk metadata.json file.
+        Writes are atomic via a temp file + os.replace and protected by a lock.
         """
         metadata_path = MovieRepository._metadata_path(movie_id)
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        with metadata_path.open("w") as f:
-            json.dump(metadata, f, indent=2)
+        tmp_path = metadata_path.with_name(metadata_path.name + ".tmp")
+
+        with _MOVIE_METADATA_LOCK:
+            with tmp_path.open("w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
+            os.replace(tmp_path, metadata_path)
 
 
 class ReviewRepository:
@@ -131,16 +145,19 @@ class ReviewRepository:
     def get_review_data(movie_id: str) -> Dict[str, Any]:
         """
         Load user review data for a movie and normalize it to a {'reviews': {...}} structure.
+        Protected by a lock to avoid concurrent read/write races.
         """
         review_path = ReviewRepository._review_path(movie_id)
-        if not review_path.exists():
-            return {"reviews": {}}
 
-        with review_path.open() as f:
-            content = f.read().strip()
-            if not content:
+        with _REVIEW_DATA_LOCK:
+            if not review_path.exists():
                 return {"reviews": {}}
-            payload = json.loads(content)
+
+            with review_path.open("r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return {"reviews": {}}
+                payload = json.loads(content)
 
         # Accept both wrapped and legacy flat JSON formats for stored reviews.
         if isinstance(payload, dict) and "reviews" in payload and isinstance(payload["reviews"], dict):
@@ -153,8 +170,13 @@ class ReviewRepository:
     def save_review_data(movie_id: str, data: Dict[str, Any]) -> None:
         """
         Persist normalized review data for a movie to its user_reviews.json file.
+        Writes are atomic via a temp file + os.replace and protected by a lock.
         """
         review_path = ReviewRepository._review_path(movie_id)
         review_path.parent.mkdir(parents=True, exist_ok=True)
-        with review_path.open("w") as f:
-            json.dump({"reviews": data.get("reviews", {})}, f, indent=2)
+        tmp_path = review_path.with_name(review_path.name + ".tmp")
+
+        with _REVIEW_DATA_LOCK:
+            with tmp_path.open("w", encoding="utf-8") as f:
+                json.dump({"reviews": data.get("reviews", {})}, f, indent=2)
+            os.replace(tmp_path, review_path)

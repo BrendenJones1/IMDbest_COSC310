@@ -6,6 +6,7 @@ from backend.routers import users_router
 from backend.schemas.user import UserCreate
 from backend.utils.security import create_access_token
 from datetime import datetime
+from contextlib import contextmanager
 import sys
 
 # Ensure only the canonical import path exists

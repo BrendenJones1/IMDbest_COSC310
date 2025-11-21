@@ -6,6 +6,7 @@ from backend.services import users_service
 from backend.services.flags_service import FlagsService
 from backend.services.users_service import user_service as users_service
 from backend.routers.admin_router import router as admin_router
+from contextlib import contextmanager
 
 
 client = TestClient(app)

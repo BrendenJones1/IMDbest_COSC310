@@ -1,6 +1,7 @@
 import pytest
 from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate
+from contextlib import contextmanager
 
 
 @pytest.fixture

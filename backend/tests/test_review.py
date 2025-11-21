@@ -5,6 +5,7 @@ from repositories import movie_repo as movie_repo_module
 from repositories.movie_repo import MovieRepository, ReviewRepository
 from schemas.review import ReviewCreate
 from services.review_service import ReviewService
+from contextlib import contextmanager
 
 
 @pytest.fixture()

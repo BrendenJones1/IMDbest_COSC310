@@ -3,6 +3,7 @@ from typing import List
 from backend.services.review_service import ReviewService
 from backend.services.users_service import user_service as users_service
 from backend.schemas.review import ReviewOut
+from contextlib import contextmanager
 
 
 @pytest.fixture

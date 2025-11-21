@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.repositories import movie_repo as movie_repo_module
+from contextlib import contextmanager
 
 client = TestClient(app)
 
