@@ -1,40 +1,68 @@
 import json
-from datetime import datetime
-from pathlib import Path
+import pytest
 
-# Example movie folder and user
-movie_folder_name = "Thor Ragnarok"
-user_id = "6b3a2d50-73f9-4d52-8a3a-2c3f4c9091e2"
+from repositories import movie_repo as movie_repo_module
+from repositories.movie_repo import MovieRepository, ReviewRepository
+from schemas.review import ReviewCreate
+from services.review_service import ReviewService
 
-# Path to the movie folder
-movie_folder = Path(f"data/movies/{movie_folder_name}")
 
-# Path to user_reviews.json inside the movie folder
-user_reviews_file = movie_folder / "user_reviews.json"
+@pytest.fixture()
+def movies_dir(tmp_path, monkeypatch):
+    base = tmp_path / "movies"
+    base.mkdir()
+    monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", base, raising=False)
+    # the classes in movie_repo reference the module-level constant directly
+    monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
+    return base
 
-# Load existing reviews or create empty dict (python cant parse empty json files so it doesn't error if it is 1st reveiw)
-if user_reviews_file.exists() and user_reviews_file.stat().st_size > 0:
-    with open(user_reviews_file, "r") as f:
-        reviews = json.load(f)
-else:
-    reviews = {}
 
-# Create a new review for the user
-new_review = {
-    "rating": 9,
-    "review_text": "Amazing movie with epic moments!",
-    "upvotes": 0,
-    "downvotes": 0,
-    "created_at": datetime.now().isoformat(),
-    "updated_at": datetime.now().isoformat()
-}
+def create_movie_directory(movies_dir, title="Sample Movie"):
+    movie_dir = movies_dir / title
+    movie_dir.mkdir()
+    (movie_dir / "metadata.json").write_text(json.dumps({"title": title}), encoding="utf-8")
+    return MovieRepository._slug(title)
 
-# Append / overwrite user's review
-reviews[user_id] = new_review
 
-# Ensure folder exists (should already exist) and save JSON
-movie_folder.mkdir(parents=True, exist_ok=True)
-with open(user_reviews_file, "w") as f:
-    json.dump(reviews, f, indent=4)
+def test_upsert_review_tracks_average_and_totals(movies_dir):
+    movie_id = create_movie_directory(movies_dir, "Thor Ragnarok")
+    service = ReviewService()
 
-print(f"✅ Review for user {user_id} added/updated in {user_reviews_file}")
+    first = service.upsert_review("user-1", movie_id, ReviewCreate(rating=4.5, review_text="Great"))
+    assert first.rating == 4.5
+
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 1
+    assert metadata["userRatingTotal"] == pytest.approx(4.5)
+    assert metadata["userRatingAverage"] == pytest.approx(4.5)
+
+    service.upsert_review("user-2", movie_id, ReviewCreate(rating=2.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 2
+    assert metadata["userRatingTotal"] == pytest.approx(6.5)
+    assert metadata["userRatingAverage"] == pytest.approx(3.25)
+
+    service.upsert_review("user-1", movie_id, ReviewCreate(rating=5.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 2
+    assert metadata["userRatingTotal"] == pytest.approx(7.0)
+    assert metadata["userRatingAverage"] == pytest.approx(3.5)
+
+
+def test_delete_review_updates_metadata(movies_dir):
+    movie_id = create_movie_directory(movies_dir, "The Dark Knight")
+    service = ReviewService()
+
+    service.upsert_review("user-1", movie_id, ReviewCreate(rating=5.0))
+    service.upsert_review("user-2", movie_id, ReviewCreate(rating=3.0))
+
+    service.delete_user_review("user-1", movie_id)
+
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 1
+    assert metadata["userRatingTotal"] == pytest.approx(3.0)
+    assert metadata["userRatingAverage"] == pytest.approx(3.0)
+
+    reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
+    assert "user-1" not in reviews
+    assert reviews["user-2"]["rating"] == 3.0

@@ -2,7 +2,12 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from backend.schemas.penalty import PenaltyCreate, PenaltyDeactivateRequest, PenaltyOut
+from backend.schemas.penalty import (
+    PenaltyCreate,
+    PenaltyDeactivateRequest,
+    PenaltyOut,
+    PenaltyUpdate,
+)
 from backend.services.penalties_service import PenaltiesService
 
 router = APIRouter(prefix="/penalties", tags=["penalties"])
@@ -32,5 +37,20 @@ def deactivate_penalty(penalty_id: int, payload: PenaltyDeactivateRequest):
 
     if not penalty:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active penalty not found")
+
+    return penalty
+
+
+@router.patch("/{penalty_id}", response_model=PenaltyOut)
+def update_penalty(penalty_id: int, payload: PenaltyUpdate):
+    penalty = service.update_penalty(
+        penalty_id,
+        reason=payload.reason,
+        issued_by=payload.issued_by,
+        source_flag_id=payload.source_flag_id,
+    )
+
+    if not penalty:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Penalty not found")
 
     return penalty
