@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
+from datetime import datetime
 
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
@@ -21,6 +22,102 @@ def clean_users(monkeypatch):
     monkeypatch.setattr(users_service.user_repo, "save_users", fake_save_users)
 
     return store
+
+def test_register_sets_registered_at_field(clean_users):
+
+    # capture time window around the call
+    before = datetime.utcnow()
+    result = users_service.register(
+        UserCreate(
+            username="alice",
+            email="alice@example.com",
+            password="Secret123!"
+        )
+    )
+    after = datetime.utcnow()
+
+    user_public = result["user"]
+
+    # 1) field is present
+    assert hasattr(user_public, "registered_at"), "registered_at missing on UserPublic"
+
+    # 2) field is a datetime
+    assert isinstance(user_public.registered_at, datetime), \
+        f"registered_at should be datetime, got {type(user_public.registered_at)}"
+
+    # 3) value is within the call window (≈ set by datetime.utcnow())
+    assert before <= user_public.registered_at <= after, \
+        "registered_at is not within expected time window"
+
+    # 4) (optional) verify it was persisted via repo
+    users = users_service.list_users()
+    assert len(users) == 1
+    stored_user = users[0]
+    assert hasattr(stored_user, "registered_at")
+    assert isinstance(stored_user.registered_at, datetime)
+
+
+
+class DummyUser:
+    def __init__(self, username: str, token_version: int = 0):
+        self.username = username
+        self.token_version = token_version
+
+
+def test_save_user_updates_existing_user_token_version(clean_users):
+    """
+    - Uses the autouse fixture (mocking load/save users).
+    - Demonstrates case-insensitive and trimmed username matching
+      (equivalence partitioning over username representations).
+    """
+    store = clean_users
+
+    # Existing stored user
+    existing = DummyUser(" Alice ", token_version=0)
+    store.append(existing)
+
+    # Payload with different case + extra spaces
+    payload = DummyUser("  alice  ", token_version=5)
+
+    users_service.save_user(payload)
+
+    # The same object in the store should now have updated token_version
+    assert existing.token_version == 5
+    assert len(store) == 1  # no extra users added
+
+def test_save_user_raises_for_unknown_user(clean_users):
+    """
+    - Tests exception handling: when no matching user exists,
+      save_user should raise ValueError.
+    """
+    payload = DummyUser("ghost", token_version=1)
+
+    with pytest.raises(ValueError) as exc:
+        users_service.save_user(payload)
+
+    assert "User ghost not found" in str(exc.value)
+
+
+def test_save_user_propagates_save_error(clean_users, monkeypatch):
+    """
+    - Fault injection: we force user_repo.save_users to fail
+      and assert that the error is propagated.
+    """
+    store = clean_users
+    store.append(DummyUser("bob", token_version=1))
+
+    # Inject a failure into save_users
+    def boom(data):
+        raise IOError("disk full")
+
+    monkeypatch.setattr(users_service.user_repo, "save_users", boom)
+
+    payload = DummyUser("bob", token_version=2)
+
+    with pytest.raises(IOError) as exc:
+        users_service.save_user(payload)
+
+    assert "disk full" in str(exc.value)
 
 def test_register_success():
     token = users_service.register(UserCreate(

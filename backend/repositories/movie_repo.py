@@ -69,29 +69,35 @@ class MovieRepository:
         if not os.path.isdir(MOVIES_DIR):
             return items
         for path in sorted(MOVIES_DIR.iterdir(), key=lambda p: p.name.lower()):
-            if not path.is_dir():
-                continue
-            movie_id = MovieRepository._slug(path.name)
-            metadata = MovieRepository._load_metadata_file(path / "metadata.json", movie_id)
-            item = {
-                "id": movie_id,
-                "title": metadata.get("title") or path.name,
-            }
-            if include_metadata:
-                item["metadata"] = metadata
-            items.append(item)
+            if path.is_dir():
+                items.append({
+                    "id": MovieRepository._slug(path.name),
+                    "title": path.name
+                })
         return items
 
     @staticmethod
-    def search_movies(q: str, include_metadata: bool = False) -> List[Dict[str, Any]]:
-        if not q or not q.strip():
-            return MovieRepository.list_movies(include_metadata=include_metadata)
-        q = q.strip().lower()
+    def search_movies(q: str, include_metadata: bool = False):
+        """
+        Search movies by substring in the title. If q is empty, return all movies.
+        When include_metadata is True, each result will include a 'metadata' key
+        populated from the movie's metadata.json.
+        """
+        query = (q or "").strip().lower()
+        candidates = MovieRepository.list_movies()
+        if query:
+            candidates = [
+                m for m in candidates
+                if query in (m.get("title") or "").lower()
+            ]
+
+        if not include_metadata:
+            return candidates
+
         results = []
-        for movie in MovieRepository.list_movies(include_metadata=include_metadata):
-            title = (movie.get("title") or "").lower()
-            if q in title:
-                results.append(movie)
+        for movie in candidates:
+            metadata = MovieRepository.get_movie_metadata(movie["id"])
+            results.append({**movie, "metadata": metadata})
         return results
 
     @staticmethod
@@ -148,6 +154,7 @@ class ReviewRepository:
         review_path = movie_dir / "user_reviews.json"
         if not review_path.exists() or review_path.stat().st_size == 0:
             return {"reviews": {}}
+
         with review_path.open() as f:
             data = json.load(f)
             # Support both dict of reviews and raw mapping at top-level

@@ -1,10 +1,11 @@
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
-from backend.services import users_service
+from backend.services.users_service import user_service as users_service
 from backend.routers import users_router
 from backend.schemas.user import UserCreate
 from backend.utils.security import create_access_token
+from datetime import datetime
 import sys
 
 # Ensure only the canonical import path exists
@@ -35,6 +36,93 @@ def client(monkeypatch):
 
     return TestClient(app)
 
+
+def test_register_response_has_registered_at(client):
+    """
+    Ensure the /users/register endpoint includes a registered_at field
+    and that it is a valid ISO 8601 datetime string.
+    """
+    resp = client.post(
+        "/users/register",
+        json={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "AnotherSecret123!",
+        },
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "user" in body
+    user = body["user"]
+
+    assert "registered_at" in user, "registered_at missing from API response"
+    assert user["registered_at"] is not None
+
+    # Parse to ensure it's a valid datetime
+    parsed = datetime.fromisoformat(user["registered_at"])
+    assert isinstance(parsed, datetime)
+
+
+class DummyUser:
+
+    def __init__(self, username: str, token_version: int=0):
+        self.username = username
+        self.token_version = token_version
+        
+
+def test_logout_increments_token_version_and_saves(client, monkeypatch):
+    """
+    - Mocking: override get_current_user and save_user.
+    - Verifies that logout increments token_version and calls save_user
+      with the updated user.
+    """
+    app = client.app
+
+    fake_user = DummyUser("alice", token_version=3)
+
+    # Override dependency to return our fake current user
+    app.dependency_overrides[users_router.get_current_user] = lambda: fake_user
+
+    saved_payloads = []
+
+    def fake_save_user(payload):
+        saved_payloads.append(payload)
+
+    monkeypatch.setattr(users_service, "save_user", fake_save_user, raising=True)
+
+    response = client.post("/users/logout")
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    # token_version should have been incremented
+    assert fake_user.token_version == 4
+    assert len(saved_payloads) == 1
+    assert saved_payloads[0] is fake_user
+    assert saved_payloads[0].token_version == 4
+
+
+
+def test_logout_propagates_save_failure(client, monkeypatch):
+    """
+    Fault injection + exception handling:
+    We force save_user to raise and assert that the exception
+    bubbles out of the request when using TestClient with
+    raise_server_exceptions=True (the default).
+    """
+    app = client.app
+
+    fake_user = DummyUser("alice", token_version=1)
+    app.dependency_overrides[users_router.get_current_user] = lambda: fake_user
+
+    def boom(payload):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(users_service, "save_user", boom, raising=True)
+
+    with pytest.raises(RuntimeError, match="disk full"):
+        client.post("/users/logout")
+
+    
 def test_router_import_path_sanity():
     import sys
     modules = [m for m in sys.modules if "users_router" in m]
@@ -91,7 +179,6 @@ def test_search_users_by_username(client):
     client.post("/users/register", json={"username": "Bob", "email": "b@x.com", "password": "pw"})
 
     res = client.get("/users/search", params={"username": "bob"})
-    print("DEBUG RESPONSE:", res.status_code, res.text)
     assert res.status_code == 200
 
 
@@ -100,7 +187,7 @@ def test_update_user_username(client):
     users = client.get("/users/").json()
     user_id = users[0]["id"]
 
-    token = create_access_token(user_id, "admin")
+    token = create_access_token(user_id, "admin", 0)
 
     res = client.put(
         f"/users/{user_id}",
@@ -125,7 +212,7 @@ def test_register_duplicate_email(client):
 def test_login_nonexistent_username(client):
     res = client.post("/users/login", params={"username": "ghost", "password": "pw"})
     assert res.status_code == 401
-    assert "invalid" in res.text.lower()
+    assert "incorrect" in res.text.lower()
 
 # --- SEARCH: by email and role ---
 def test_search_users_by_email_and_role(client):

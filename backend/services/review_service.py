@@ -1,5 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
+
+from fastapi import HTTPException, status
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
 from backend.repositories.movie_repo import MovieRepository, ReviewRepository
@@ -51,13 +53,14 @@ class ReviewService:
         return items
 
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
+        self._ensure_movie_exists(movie_id)
         # Load movie metadata and reviews for this movie
         metadata = MovieRepository.get_movie_metadata(movie_id)
         review_data = ReviewRepository.get_review_data(movie_id)
 
         #Check if user already has a review for the movie
         current = review_data["reviews"].get(user_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if current:
             # get rid of/update old reviews metadata
@@ -93,6 +96,7 @@ class ReviewService:
         return ReviewOut(**updated_review)
 
     def get_user_review(self, user_id: str, movie_id: str) -> Optional[ReviewOut]:
+        self._ensure_movie_exists(movie_id)
         #get reviews
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for the movie
@@ -101,6 +105,7 @@ class ReviewService:
         return ReviewOut(**review_data["reviews"][user_id])
 
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
+        self._ensure_movie_exists(movie_id)
         # get reviews
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for this movie: if not return, if they do continue
