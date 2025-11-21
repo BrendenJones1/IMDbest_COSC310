@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from fastapi import HTTPException, status
@@ -23,7 +23,7 @@ class ReviewService:
 
         #Check if user already has a review for the movie
         current = review_data["reviews"].get(user_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if current:
             # get rid of/update old reviews metadata

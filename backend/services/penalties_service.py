@@ -71,3 +71,17 @@ class PenaltiesService:
                 self._save(data)
                 return p
         return None
+
+    def update_penalty(self, penalty_id: int, *, reason=None, issued_by=None, source_flag_id=None):
+        data = self._load()
+        for p in data:
+            if p["penalty_id"] == penalty_id:
+                if reason is not None:
+                    p["reason"] = reason
+                if issued_by is not None:
+                    p["issued_by"] = issued_by
+                if source_flag_id is not None:
+                    p["source_flag_id"] = source_flag_id
+                self._save(data)
+                return p
+        return None

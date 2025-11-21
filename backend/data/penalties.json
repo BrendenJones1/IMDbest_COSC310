@@ -251,5 +251,71 @@
         "active": true,
         "date_revoked": null,
         "revoked_by": null
+    },
+    {
+        "penalty_id": 15,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-18T14:38:42.225909+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 16,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-18T14:55:29.210357+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 17,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-18T14:56:16.377285+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 18,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-21T02:59:26.044750+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 19,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-21T03:11:18.361301+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 20,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-21T03:12:24.255038+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
     }
 ]
