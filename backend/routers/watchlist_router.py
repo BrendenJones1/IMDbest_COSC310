@@ -132,5 +132,10 @@ def remove_movie_from_watchlist_short(user_id: str, movie_title: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=message,
         )
+    if message == "Movie not found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=message,
+        )
 
     return WatchlistResponse(message=message)
