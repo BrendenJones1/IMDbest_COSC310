@@ -4,16 +4,53 @@ from typing import Optional, List
 from fastapi import HTTPException, status
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from backend.repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 class ReviewService:
 
-    def _ensure_movie_exists(self, movie_id: str):
+    def _parse_datetime(self, value):
+        # Accept ISO strings, return datetime; fall back to current time if invalid
+        if value is None:
+            return datetime.utcnow()
+        if isinstance(value, datetime):
+            return value
         try:
-            MovieRepository._resolve_movie_dir(movie_id)
-        except FileNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="movie not found")
+            # fromisoformat handles most formats except 'Z' suffix; handle that
+            text = str(value)
+            if text.endswith("Z"):
+                text = text[:-1]
+            return datetime.fromisoformat(text)
+        except Exception:
+            return datetime.utcnow()
+
+    def list_reviews(self, movie_id: str, sort: str = "recent"):
+        """
+        Return list of reviews for a movie sorted by 'upvotes' or 'recent'.
+        """
+        data = ReviewRepository.get_review_data(movie_id)
+        reviews_map = data.get("reviews", {})
+        items = []
+        for user_id, r in reviews_map.items():
+            created_raw = r.get("created_at") or r.get("timestamp") or r.get("updated_at")
+            updated_raw = r.get("updated_at") or r.get("timestamp") or r.get("created_at")
+            item = {
+                "user_id": user_id,
+                "rating": int(r.get("rating")) if r.get("rating") is not None else 0,
+                "review_text": r.get("review_text"),
+                "upvotes": int(r.get("upvotes") or 0),
+                "downvotes": int(r.get("downvotes") or 0),
+                "created_at": self._parse_datetime(created_raw),
+                "updated_at": self._parse_datetime(updated_raw),
+            }
+            items.append(ReviewOut(**item))
+
+        if sort == "upvotes":
+            items.sort(key=lambda x: (x.upvotes, x.created_at), reverse=True)
+        else:
+            # default to recent
+            items.sort(key=lambda x: x.created_at, reverse=True)
+        return items
 
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
         self._ensure_movie_exists(movie_id)
