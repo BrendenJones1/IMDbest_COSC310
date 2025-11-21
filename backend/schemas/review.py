@@ -15,7 +15,7 @@ class ReviewUpdate(BaseModel):
 class ReviewOut(BaseModel):
     user_id: str
     username: Optional[str] = None
-    rating: int
+    rating: float
     review_text: Optional[str]
     upvotes: int
     downvotes: int
