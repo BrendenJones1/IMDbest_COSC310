@@ -52,13 +52,13 @@ class ReviewService:
             items.sort(key=lambda x: x.created_at, reverse=True)
         return items
 
-        # helper method to ensure movie exists
-        def _ensure_movie_exists(self, movie_id: str):
-            if not MovieRepository.movie_exists(movie_id):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Movie with id '{movie_id}' not found."
-                )
+    # helper method to ensure movie exists
+    def _ensure_movie_exists(self, movie_id: str):
+        if not MovieRepository.movie_exists(movie_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Movie with id '{movie_id}' not found."
+            )    
 
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
         self._ensure_movie_exists(movie_id)
