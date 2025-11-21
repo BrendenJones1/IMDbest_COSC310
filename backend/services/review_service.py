@@ -52,6 +52,14 @@ class ReviewService:
             items.sort(key=lambda x: x.created_at, reverse=True)
         return items
 
+        # helper method to ensure movie exists
+        def _ensure_movie_exists(self, movie_id: str):
+        if not MovieRepository.movie_exists(movie_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Movie with id '{movie_id}' not found."
+            )
+
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
         self._ensure_movie_exists(movie_id)
         # Load movie metadata and reviews for this movie
@@ -106,7 +114,7 @@ class ReviewService:
 
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
         self._ensure_movie_exists(movie_id)
-        # get reviews
+        # get reviews   
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for this movie: if not return, if they do continue
         if user_id not in review_data["reviews"]:
