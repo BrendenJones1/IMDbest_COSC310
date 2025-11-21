@@ -7,6 +7,10 @@ from backend.repositories.movie_repo import MovieRepository
 
 #use: pytest backend/tests/test_review_sorting.py -v 
 #to see test output
+import sys
+from pathlib import Path as _P
+# Ensure project root is on sys.path so 'backend' package can be imported
+sys.path.append(str(_P(__file__).resolve().parents[2]))
 
 client = TestClient(app)
 
