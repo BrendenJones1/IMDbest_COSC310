@@ -11,7 +11,7 @@ from backend.schemas.review import ReviewOut
 from backend.services.review_service import ReviewService
 from backend.services.penalties_service import PenaltiesService
 from backend.services.flags_service import FlagsService
-
+from datetime import datetime
 
 class UserService:
     def __init__(
@@ -80,7 +80,8 @@ class UserService:
             penalties=[],
             reviews=[],
             watchlist=[],
-            token_version=0
+            token_version=0,
+            registered_at=datetime.utcnow()
         ).model_dump()
 
         users.append(new_user)

@@ -1,5 +1,6 @@
 from typing import List, Literal, Optional, TypedDict
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 class User(BaseModel):
     id: str
@@ -11,6 +12,7 @@ class User(BaseModel):
     reviews: List[str]
     watchlist: List[str]
     token_version: int=0
+    registered_at: datetime
 
 class UserCreate(BaseModel):
     username: str
@@ -32,6 +34,7 @@ class UserPublic(BaseModel):
     email: str
     reviews: list = Field(default_factory=list)
     watchlist: list = Field(default_factory=list)
+    registered_at: Optional[datetime] = None
 
 class CurrentUser(TypedDict):
     username: str

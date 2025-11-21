@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
+from datetime import datetime
 
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
@@ -21,6 +22,41 @@ def clean_users(monkeypatch):
     monkeypatch.setattr(users_service.user_repo, "save_users", fake_save_users)
 
     return store
+
+def test_register_sets_registered_at_field(clean_users):
+
+    # capture time window around the call
+    before = datetime.utcnow()
+    result = users_service.register(
+        UserCreate(
+            username="alice",
+            email="alice@example.com",
+            password="Secret123!"
+        )
+    )
+    after = datetime.utcnow()
+
+    user_public = result["user"]
+
+    # 1) field is present
+    assert hasattr(user_public, "registered_at"), "registered_at missing on UserPublic"
+
+    # 2) field is a datetime
+    assert isinstance(user_public.registered_at, datetime), \
+        f"registered_at should be datetime, got {type(user_public.registered_at)}"
+
+    # 3) value is within the call window (≈ set by datetime.utcnow())
+    assert before <= user_public.registered_at <= after, \
+        "registered_at is not within expected time window"
+
+    # 4) (optional) verify it was persisted via repo
+    users = users_service.list_users()
+    assert len(users) == 1
+    stored_user = users[0]
+    assert hasattr(stored_user, "registered_at")
+    assert isinstance(stored_user.registered_at, datetime)
+
+
 
 class DummyUser:
     def __init__(self, username: str, token_version: int = 0):
