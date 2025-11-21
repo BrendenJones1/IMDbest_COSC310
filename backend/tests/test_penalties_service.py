@@ -45,3 +45,23 @@ def test_deactivate_penalty_equivalence_partitions(penalties_service):
     # Non-existent penalty partition → should return None
     missing_result = penalties_service.deactivate_penalty(9999, revoked_by=9)
     assert missing_result is None
+
+
+def test_update_penalty_mutates_fields(penalties_service):
+    penalty = penalties_service.add_penalty(
+        user_id=2,
+        reason="old",
+        issued_by=4,
+        source_flag_id=None,
+    )
+
+    updated = penalties_service.update_penalty(
+        penalty["penalty_id"],
+        reason="new reason",
+        issued_by=10,
+        source_flag_id=99,
+    )
+
+    assert updated["reason"] == "new reason"
+    assert updated["issued_by"] == 10
+    assert updated["source_flag_id"] == 99

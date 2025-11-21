@@ -1,17 +1,13 @@
 from pathlib import Path
 import json
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from backend.routers.reviews_router import router as reviews_router
+from backend.main import app
 from backend.repositories.movie_repo import MovieRepository
-
-#use: pytest backend/tests/test_review_sorting.py -v 
-#to see test output
-app = FastAPI()
-app.include_router(reviews_router)
-client = TestClient(app)
-
+import sys
+from pathlib import Path as _P
+# Ensure project root is on sys.path so 'backend' package can be imported
+sys.path.append(str(_P(__file__).resolve().parents[2]))
 
 def _movie_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "backend" / "data" / "movies" / "Test Movie Sorting"
