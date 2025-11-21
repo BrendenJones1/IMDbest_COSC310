@@ -64,3 +64,13 @@ def test_remove_unknown_user_returns_404():
     resp = client.delete("/watchlists/no_user/Anything")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "User not found"
+
+
+def test_remove_unknown_movie_returns_404():
+    # Create user with one movie
+    client.post("/watchlists/u11", json={"movieTitle": "Tenet"})
+
+    # Try removing a different movie
+    resp = client.delete("/watchlists/u11/NonexistentMovie")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Movie not found"
