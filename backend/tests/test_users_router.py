@@ -91,7 +91,6 @@ def test_search_users_by_username(client):
     client.post("/users/register", json={"username": "Bob", "email": "b@x.com", "password": "pw"})
 
     res = client.get("/users/search", params={"username": "bob"})
-    print("DEBUG RESPONSE:", res.status_code, res.text)
     assert res.status_code == 200
 
 
@@ -125,7 +124,7 @@ def test_register_duplicate_email(client):
 def test_login_nonexistent_username(client):
     res = client.post("/users/login", params={"username": "ghost", "password": "pw"})
     assert res.status_code == 401
-    assert "invalid" in res.text.lower()
+    assert "incorrect" in res.text.lower()
 
 # --- SEARCH: by email and role ---
 def test_search_users_by_email_and_role(client):
