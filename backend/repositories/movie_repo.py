@@ -18,6 +18,16 @@ class MovieRepository:
         # very simple id: lowercase + spaces -> hyphens
         return title.strip().lower().replace(" ", "-")
 
+    
+    @staticmethod
+    def movie_exists(movie_id: str) -> bool:
+        # helper method to check if movie exists
+        try:
+            metadata = MovieRepository.get_movie_metadata(movie_id)
+            return metadata is not None
+        except Exception:
+            return False
+
     @staticmethod
     def _resolve_movie_dir(movie_id: str) -> Optional[Path]:
         """
