@@ -1,0 +1,13 @@
+{
+  "reviews": {
+    "user-2": {
+      "user_id": "user-2",
+      "rating": 3.0,
+      "review_text": null,
+      "upvotes": 0,
+      "downvotes": 0,
+      "created_at": "2025-11-21T21:03:26.324234+00:00",
+      "updated_at": "2025-11-21T21:03:26.324234+00:00"
+    }
+  }
+}

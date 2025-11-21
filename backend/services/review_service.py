@@ -1,10 +1,12 @@
+import json
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict
+from pathlib import Path
 
 from fastapi import HTTPException, status
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from backend.repositories.movie_repo import MovieRepository, ReviewRepository
+from repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 class ReviewService:
@@ -24,10 +26,39 @@ class ReviewService:
         except Exception:
             return datetime.utcnow()
 
+    def _load_usernames(self) -> Dict[str, str]:
+        """
+        Load a map of user_id -> username from users.json. Returns {} if missing.
+        """
+        users_file = Path(__file__).resolve().parents[1] / "data" / "users.json"
+        if not users_file.exists():
+            return {}
+        try:
+            with users_file.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return {}
+        id_to_name: Dict[str, str] = {}
+        if isinstance(data, list):
+            for u in data:
+                uid = u.get("id")
+                uname = u.get("username")
+                if uid and uname:
+                    id_to_name[uid] = uname
+        elif isinstance(data, dict):
+            # support alternative shape if ever used
+            for u in data.get("users", []):
+                uid = u.get("id")
+                uname = u.get("username")
+                if uid and uname:
+                    id_to_name[uid] = uname
+        return id_to_name
+
     def list_reviews(self, movie_id: str, sort: str = "recent"):
         """
         Return list of reviews for a movie sorted by 'upvotes' or 'recent'.
         """
+        id_to_name = self._load_usernames()
         data = ReviewRepository.get_review_data(movie_id)
         reviews_map = data.get("reviews", {})
         items = []
@@ -36,7 +67,8 @@ class ReviewService:
             updated_raw = r.get("updated_at") or r.get("timestamp") or r.get("created_at")
             item = {
                 "user_id": user_id,
-                "rating": int(r.get("rating")) if r.get("rating") is not None else 0,
+                "username": r.get("username") or id_to_name.get(user_id),
+                "rating": float(r.get("rating")) if r.get("rating") is not None else 0.0,
                 "review_text": r.get("review_text"),
                 "upvotes": int(r.get("upvotes") or 0),
                 "downvotes": int(r.get("downvotes") or 0),
@@ -52,18 +84,22 @@ class ReviewService:
             items.sort(key=lambda x: x.created_at, reverse=True)
         return items
 
-    # helper method to ensure movie exists
-    def _ensure_movie_exists(self, movie_id: str):
-        if not MovieRepository.movie_exists(movie_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Movie with id '{movie_id}' not found."
-            )    
+    def _ensure_movie_exists(self, movie_id: str) -> None:
+        """
+        Raise HTTP 404 if the movie does not exist in the repository.
+        """
+        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        if movie_dir is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="movie not found")
 
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
         self._ensure_movie_exists(movie_id)
         # Load movie metadata and reviews for this movie
         metadata = MovieRepository.get_movie_metadata(movie_id)
+        # Ensure metadata has expected fields (tests may create minimal metadata.json)
+        metadata.setdefault("userRatingCount", 0)
+        metadata.setdefault("userRatingTotal", 0.0)
+        metadata.setdefault("userRatingAverage", 0.0)
         review_data = ReviewRepository.get_review_data(movie_id)
 
         #Check if user already has a review for the movie
@@ -122,6 +158,10 @@ class ReviewService:
 
         #get current metadata
         metadata = MovieRepository.get_movie_metadata(movie_id)
+        # Ensure metadata has expected fields
+        metadata.setdefault("userRatingCount", 0)
+        metadata.setdefault("userRatingTotal", 0.0)
+        metadata.setdefault("userRatingAverage", 0.0)
         current = review_data["reviews"][user_id]
 
         #subtract the user rating from total and update metadata
