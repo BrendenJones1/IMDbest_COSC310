@@ -222,5 +222,14 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-11-21T21:08:37.685728"
+    },
+    {
+        "flag_id": 26,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:22:10.483194"
     }
 ]
