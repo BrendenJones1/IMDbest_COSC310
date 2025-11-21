@@ -41,4 +41,6 @@ def remove_movie(user_id: str, movie_title: str) -> WatchlistMessage:
     message = result.get("message", "")
     if message == "User not found":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    if message == "Movie not found":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
     return WatchlistMessage(**result)

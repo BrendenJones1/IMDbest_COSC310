@@ -1,13 +1,22 @@
 from datetime import datetime
 from typing import Optional, List
 
+from fastapi import HTTPException, status
+
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
 from repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 class ReviewService:
 
+    def _ensure_movie_exists(self, movie_id: str):
+        try:
+            MovieRepository._resolve_movie_dir(movie_id)
+        except FileNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="movie not found")
+
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
+        self._ensure_movie_exists(movie_id)
         # Load movie metadata and reviews for this movie
         metadata = MovieRepository.get_movie_metadata(movie_id)
         review_data = ReviewRepository.get_review_data(movie_id)
@@ -50,6 +59,7 @@ class ReviewService:
         return ReviewOut(**updated_review)
 
     def get_user_review(self, user_id: str, movie_id: str) -> Optional[ReviewOut]:
+        self._ensure_movie_exists(movie_id)
         #get reviews
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for the movie
@@ -58,6 +68,7 @@ class ReviewService:
         return ReviewOut(**review_data["reviews"][user_id])
 
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
+        self._ensure_movie_exists(movie_id)
         # get reviews
         review_data = ReviewRepository.get_review_data(movie_id)
         #check if user has a review for this movie: if not return, if they do continue
