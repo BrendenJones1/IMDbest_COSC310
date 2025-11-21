@@ -8,9 +8,7 @@ import sys
 from pathlib import Path as _P
 # Ensure project root is on sys.path so 'backend' package can be imported
 sys.path.append(str(_P(__file__).resolve().parents[2]))
-
 client = TestClient(app)
-
 
 def _movie_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "backend" / "data" / "movies" / "Test Movie Sorting"
@@ -83,4 +81,28 @@ def test_list_reviews_sort_by_recent():
     usernames = [item["user_id"] for item in data["items"]]
     # user-c is most recent (6 hours ago), then user-a (~1 day), then user-b (~2 days)
     assert usernames == ["user-c", "user-a", "user-b"]
+
+
+def test_top_reviews_with_limit_and_total():
+    movie_id = MovieRepository._slug("Test Movie Sorting")
+    # default sort is upvotes; request only top 2
+    r = client.get(f"/reviews/{movie_id}?limit=2")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 3
+    assert data["limit"] == 2
+    assert data["offset"] == 0
+    usernames = [item["user_id"] for item in data["items"]]
+    assert usernames == ["user-b", "user-a"]
+
+
+def test_see_all_reviews_with_large_limit():
+    movie_id = MovieRepository._slug("Test Movie Sorting")
+    r = client.get(f"/reviews/{movie_id}?sort=upvotes&limit=100")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 3
+    assert len(data["items"]) == 3
+    usernames = [item["user_id"] for item in data["items"]]
+    assert usernames == ["user-b", "user-a", "user-c"]
 
