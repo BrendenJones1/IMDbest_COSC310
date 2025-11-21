@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routers import watchlist_router
-from backend.routers.search import router as search_router
+from backend.routers.search_router import router as search_router
 from backend.routers.reviews_router import router as reviews_router
 from backend.routers import users_router, admin_router
 from backend.routers.flags_router import router as flags_router
