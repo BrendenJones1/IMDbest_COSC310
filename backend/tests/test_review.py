@@ -2,7 +2,8 @@ import json
 import pytest
 
 from repositories import movie_repo as movie_repo_module
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from repositories.movie_repo import MovieRepository
+from repositories.reviews_repo import ReviewRepository
 from schemas.review import ReviewCreate
 from services.review_service import ReviewService
 
@@ -81,3 +82,27 @@ def test_delete_review_updates_metadata(movies_dir):
     reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
     assert "user-1" not in reviews
     assert reviews["user-2"]["rating"] == 3.0
+
+
+def test_delete_last_review_recalculates_to_zero(movies_dir):
+    movie_id = create_movie_directory(movies_dir, "Boundary Delete Last")
+    service = ReviewService()
+
+    # Add the sole review
+    service.upsert_review("solo-user", movie_id, ReviewCreate(rating=4.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 1
+    assert metadata["userRatingTotal"] == pytest.approx(4.0)
+    assert metadata["userRatingAverage"] == pytest.approx(4.0)
+
+    # Delete the sole review; should not divide by zero
+    service.delete_user_review("solo-user", movie_id)
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 0
+    assert metadata["userRatingTotal"] == pytest.approx(0.0)
+    assert metadata["userRatingAverage"] == pytest.approx(0.0)
+
+    # Ensure reviews map is empty
+    reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
+    assert "solo-user" not in reviews
+    assert len(reviews) == 0

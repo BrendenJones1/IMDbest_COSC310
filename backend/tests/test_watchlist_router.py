@@ -17,7 +17,11 @@ def watchlist_file(tmp_path, monkeypatch):
     temp_file = tmp_path / "watchlist.json"
     temp_file.write_text(json.dumps({"users": []}), encoding="utf-8")
     monkeypatch.setattr(watchlist_service, "WATCHLIST_FILE", temp_file)
-    monkeypatch.setattr("backend.services.watchlist_service.WATCHLIST_FILE", temp_file, raising=False)
+    monkeypatch.setattr(
+        "backend.services.watchlist_service.WATCHLIST_FILE",
+        temp_file,
+        raising=False,
+    )
     yield
 
 
@@ -66,7 +70,7 @@ def test_remove_existing_movie():
     """
     client.post("/watchlists/u7", json={"movieTitle": "Arrival"})
 
-    resp = client.delete("/watchlists/u7/Arrival")
+    resp = client.delete("/watchlists/u7/movies/Arrival")
     assert resp.status_code == 200
     assert resp.json()["message"] == "Movie removed"
 

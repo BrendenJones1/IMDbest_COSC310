@@ -12,7 +12,11 @@ from backend.schemas.review import ReviewOut
 from backend.services.review_service import ReviewService
 from backend.services.penalties_service import PenaltiesService
 from backend.services.flags_service import FlagsService
+<<<<<<< HEAD
 
+=======
+from datetime import datetime, timezone
+>>>>>>> main
 
 class UserService:
     """
@@ -93,7 +97,11 @@ class UserService:
             reviews=[],
             watchlist=[],
             token_version=0,
+<<<<<<< HEAD
             registered_at=datetime.utcnow(),
+=======
+            registered_at=datetime.now(timezone.utc)
+>>>>>>> main
         ).model_dump()
 
         users.append(new_user)

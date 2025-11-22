@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +39,7 @@ def test_register_sets_registered_at_field(clean_users):
             password="Secret123!",
         )
     )
-    after = datetime.utcnow()
+    after = datetime.now(timezone.utc)
 
     user_public = result["user"]
 
