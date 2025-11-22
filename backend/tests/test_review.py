@@ -2,7 +2,8 @@ import json
 import pytest
 
 from repositories import movie_repo as movie_repo_module
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from repositories.movie_repo import MovieRepository
+from repositories.reviews_repo import ReviewRepository
 from schemas.review import ReviewCreate
 from services.review_service import ReviewService
 
@@ -14,13 +15,26 @@ def movies_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", base, raising=False)
     # the classes in movie_repo reference the module-level constant directly
     monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
+    # also patch the backend-qualified module in case it's imported elsewhere
+    monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", base, raising=False)
     return base
 
 
 def create_movie_directory(movies_dir, title="Sample Movie"):
     movie_dir = movies_dir / title
     movie_dir.mkdir()
-    (movie_dir / "metadata.json").write_text(json.dumps({"title": title}), encoding="utf-8")
+    (movie_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "title": title,
+                # initialize fields expected by the service/tests
+                "userRatingCount": 0,
+                "userRatingTotal": 0.0,
+                "userRatingAverage": 0.0,
+            }
+        ),
+        encoding="utf-8",
+    )
     return MovieRepository._slug(title)
 
 
