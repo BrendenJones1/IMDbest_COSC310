@@ -295,5 +295,16 @@
         "active": true,
         "date_revoked": null,
         "revoked_by": null
+    },
+    {
+        "penalty_id": 19,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-22T03:43:42.940024+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
     }
 ]
