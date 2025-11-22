@@ -350,5 +350,38 @@
         "active": true,
         "date_revoked": null,
         "revoked_by": null
+    },
+    {
+        "penalty_id": 29,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-22T05:07:59.915853+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 30,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-22T05:10:57.210022+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 31,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-11-22T05:13:50.757758+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
     }
 ]
