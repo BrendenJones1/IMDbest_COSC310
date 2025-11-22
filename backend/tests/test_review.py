@@ -2,7 +2,8 @@ import json
 import pytest
 
 from repositories import movie_repo as movie_repo_module
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from repositories.movie_repo import MovieRepository
+from repositories.reviews_repo import ReviewRepository
 from schemas.review import ReviewCreate
 from services.review_service import ReviewService
 

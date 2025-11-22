@@ -22,11 +22,7 @@ class MovieRepository:
     @staticmethod
     def movie_exists(movie_id: str) -> bool:
         # helper method to check if movie exists
-        try:
-            metadata = MovieRepository.get_movie_metadata(movie_id)
-            return metadata is not None
-        except Exception:
-            return False
+        return MovieRepository._resolve_movie_dir(movie_id) is not None
 
     @staticmethod
     def _resolve_movie_dir(movie_id: str) -> Optional[Path]:
@@ -112,26 +108,13 @@ class MovieRepository:
 
     @staticmethod
     def get_movie_metadata(movie_id: str) -> Dict[str, Any]:
-        # Resolve the folder for this movie id
         movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        if movie_dir is None:
-            # Return default metadata if movie folder doesn't exist
-            return {
-                "movie_id": movie_id,
-                "userRatingCount": 0,
-                "userRatingTotal": 0,
-                "userRatingAverage": 0.0
-            }
-        metadata_path = movie_dir / "metadata.json"
-        if not metadata_path.exists():
-            return {
-                "movie_id": movie_id,
-                "userRatingCount": 0,
-                "userRatingTotal": 0,
-                "userRatingAverage": 0.0
-            }
-        with metadata_path.open() as f:
-            return json.load(f)
+        metadata_path = (
+            movie_dir / "metadata.json"
+            if movie_dir is not None
+            else MOVIES_DIR / movie_id / "metadata.json"
+        )
+        return MovieRepository._load_metadata_file(metadata_path, movie_id)
 
     @staticmethod
     def save_movie_metadata(movie_id: str, metadata: Dict[str, Any]) -> None:
@@ -144,43 +127,3 @@ class MovieRepository:
         with metadata_path.open("w") as f:
             json.dump(metadata, f, indent=2)
 
-
-class ReviewRepository:
-    @staticmethod
-    def _review_path(movie_id: str) -> Path:
-        try:
-            movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        except FileNotFoundError:
-            movie_dir = MOVIES_DIR / movie_id
-            movie_dir.mkdir(parents=True, exist_ok=True)
-        return movie_dir / "user_reviews.json"
-
-    @staticmethod
-    def get_review_data(movie_id: str) -> Dict[str, Any]:
-        # find review data path by resolving the movie directory
-        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        if movie_dir is None:
-            return {"reviews": {}}
-        review_path = movie_dir / "user_reviews.json"
-        if not review_path.exists() or review_path.stat().st_size == 0:
-            return {"reviews": {}}
-
-        with review_path.open() as f:
-            data = json.load(f)
-            # Support both dict of reviews and raw mapping at top-level
-            if isinstance(data, dict) and "reviews" in data:
-                return data
-            if isinstance(data, dict):
-                return {"reviews": data}
-            return {"reviews": {}}
-
-    @staticmethod
-    def save_review_data(movie_id: str, data: Dict[str, Any]) -> None:
-        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        if movie_dir is None:
-            return
-        review_path = movie_dir / "user_reviews.json"
-        # normalize shape
-        to_write = data if "reviews" in data else {"reviews": data}
-        with review_path.open("w") as f:
-            json.dump(to_write, f, indent=2)

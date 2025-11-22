@@ -231,5 +231,50 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-11-21T21:22:10.483194"
+    },
+    {
+        "flag_id": 27,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T20:43:08.106743"
+    },
+    {
+        "flag_id": 28,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T20:44:11.544086"
+    },
+    {
+        "flag_id": 29,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:07:59.914448"
+    },
+    {
+        "flag_id": 30,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:10:57.206744"
+    },
+    {
+        "flag_id": 31,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:13:50.755988"
     }
 ]
