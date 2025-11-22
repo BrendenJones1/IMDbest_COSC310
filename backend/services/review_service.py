@@ -1,12 +1,7 @@
-<<<<<<< HEAD
-from datetime import datetime
-from typing import Optional, List, Tuple
-=======
 import json
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from pathlib import Path
->>>>>>> main
 
 from fastapi import HTTPException, status
 
@@ -20,19 +15,12 @@ class ReviewService:
     Provide high-level operations for creating, updating, and deleting movie reviews.
     """
 
-<<<<<<< HEAD
-    def _ensure_movie_exists(self, movie_id: str):
-        """
-        Raise a 404 HTTP error if the given movie_id does not correspond to a stored movie.
-        """
-=======
     def _parse_datetime(self, value):
         # Accept ISO strings, return datetime; fall back to current time if invalid
         if value is None:
             return datetime.utcnow()
         if isinstance(value, datetime):
             return value
->>>>>>> main
         try:
             # fromisoformat handles most formats except 'Z' suffix; handle that
             text = str(value)
@@ -166,10 +154,7 @@ class ReviewService:
         Delete a user's review for a movie and update the movie's rating metadata.
         """
         self._ensure_movie_exists(movie_id)
-<<<<<<< HEAD
-=======
         # get reviews   
->>>>>>> main
         review_data = ReviewRepository.get_review_data(movie_id)
 
         if user_id not in review_data["reviews"]:
@@ -184,13 +169,6 @@ class ReviewService:
 
         metadata["userRatingTotal"] -= current["rating"]
         metadata["userRatingCount"] -= 1
-<<<<<<< HEAD
-        metadata["userRatingAverage"] = (
-            round(metadata["userRatingTotal"] / metadata["userRatingCount"], 2)
-            if metadata["userRatingCount"] > 0
-            else 0.0
-        )
-=======
         if metadata["userRatingCount"] <= 0:
             metadata["userRatingCount"] = 0
             metadata["userRatingTotal"] = 0.0
@@ -199,7 +177,6 @@ class ReviewService:
             metadata["userRatingAverage"] = round(
                 metadata["userRatingTotal"] / metadata["userRatingCount"], 2
             )
->>>>>>> main
 
         del review_data["reviews"][user_id]
 
