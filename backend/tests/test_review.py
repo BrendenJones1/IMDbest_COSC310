@@ -1,11 +1,11 @@
 import json
 import pytest
 
-from repositories import movie_repo as movie_repo_module
-from repositories.movie_repo import MovieRepository
-from repositories.reviews_repo import ReviewRepository
-from schemas.review import ReviewCreate
-from services.review_service import ReviewService
+from backend.repositories import movie_repo as movie_repo_module
+from backend.repositories.movie_repo import MovieRepository
+from backend.repositories.reviews_repo import ReviewRepository
+from backend.schemas.review import ReviewCreate
+from backend.services.review_service import ReviewService
 
 
 @pytest.fixture()
@@ -17,6 +17,12 @@ def movies_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
     # also patch the backend-qualified module in case it's imported elsewhere
     monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", base, raising=False)
+    # sanity: ensure both namespaces (if present) point to same path
+    try:
+        import repositories.movie_repo as legacy_movie_repo  # type: ignore
+        assert getattr(legacy_movie_repo, "MOVIES_DIR", None) == base
+    except Exception:
+        pass
     return base
 
 
