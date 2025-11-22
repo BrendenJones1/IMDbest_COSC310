@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional, TypedDict
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
 
 class User(BaseModel):
@@ -35,11 +35,16 @@ class UserPublic(BaseModel):
     reviews: list = Field(default_factory=list)
     watchlist: list = Field(default_factory=list)
     registered_at: Optional[datetime] = None
-    model_config = ConfigDict(
-        json_encoders={
-            datetime: lambda value: value.isoformat() if value else None
-        }
-    )
+
+    @field_serializer("registered_at", when_used="json")
+    def serialize_registered_at(self, value: Optional[datetime]) -> Optional[str]:
+        if value is None:
+            return None
+        # datetime.isoformat() already includes timezone offsets when present.
+        iso = value.isoformat()
+        if iso.endswith("Z"):
+            return iso[:-1] + "+00:00"
+        return iso
 
 class CurrentUser(TypedDict):
     username: str

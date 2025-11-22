@@ -15,26 +15,13 @@ def movies_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", base, raising=False)
     # the classes in movie_repo reference the module-level constant directly
     monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
-    # also patch the backend-qualified module in case it's imported elsewhere
-    monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", base, raising=False)
     return base
 
 
 def create_movie_directory(movies_dir, title="Sample Movie"):
     movie_dir = movies_dir / title
     movie_dir.mkdir()
-    (movie_dir / "metadata.json").write_text(
-        json.dumps(
-            {
-                "title": title,
-                # initialize fields expected by the service/tests
-                "userRatingCount": 0,
-                "userRatingTotal": 0.0,
-                "userRatingAverage": 0.0,
-            }
-        ),
-        encoding="utf-8",
-    )
+    (movie_dir / "metadata.json").write_text(json.dumps({"title": title}), encoding="utf-8")
     return MovieRepository._slug(title)
 
 
@@ -82,27 +69,25 @@ def test_delete_review_updates_metadata(movies_dir):
     assert reviews["user-2"]["rating"] == 3.0
 
 
-def test_upsert_same_user_preserves_count(movies_dir):
-    movie_id = create_movie_directory(movies_dir, "Pulp Fiction")
+def test_delete_last_review_recalculates_to_zero(movies_dir):
+    movie_id = create_movie_directory(movies_dir, "Boundary Delete Last")
     service = ReviewService()
 
-    # first review by user-a increments count
-    service.upsert_review("user-a", movie_id, ReviewCreate(rating=4.0))
+    # Add the sole review
+    service.upsert_review("solo-user", movie_id, ReviewCreate(rating=4.0))
     metadata = MovieRepository.get_movie_metadata(movie_id)
     assert metadata["userRatingCount"] == 1
     assert metadata["userRatingTotal"] == pytest.approx(4.0)
     assert metadata["userRatingAverage"] == pytest.approx(4.0)
 
-    # update same user should NOT increment count, but adjust totals/average
-    service.upsert_review("user-a", movie_id, ReviewCreate(rating=2.0))
+    # Delete the sole review; should not divide by zero
+    service.delete_user_review("solo-user", movie_id)
     metadata = MovieRepository.get_movie_metadata(movie_id)
-    assert metadata["userRatingCount"] == 1
-    assert metadata["userRatingTotal"] == pytest.approx(2.0)
-    assert metadata["userRatingAverage"] == pytest.approx(2.0)
+    assert metadata["userRatingCount"] == 0
+    assert metadata["userRatingTotal"] == pytest.approx(0.0)
+    assert metadata["userRatingAverage"] == pytest.approx(0.0)
 
-    # second distinct user increments count
-    service.upsert_review("user-b", movie_id, ReviewCreate(rating=3.0))
-    metadata = MovieRepository.get_movie_metadata(movie_id)
-    assert metadata["userRatingCount"] == 2
-    assert metadata["userRatingTotal"] == pytest.approx(5.0)
-    assert metadata["userRatingAverage"] == pytest.approx(2.5)
+    # Ensure reviews map is empty
+    reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
+    assert "solo-user" not in reviews
+    assert len(reviews) == 0
