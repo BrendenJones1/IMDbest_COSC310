@@ -31,7 +31,7 @@ def test_register_sets_registered_at_field(clean_users):
     """
     Registering a user should set registered_at as a datetime within the call window and persist it.
     """
-    before = datetime.utcnow()
+    before = datetime.now(timezone.utc)
     result = users_service.register(
         UserCreate(
             username="alice",
