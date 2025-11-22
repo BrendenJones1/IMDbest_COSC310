@@ -25,3 +25,9 @@ class PenaltyOut(BaseModel):
     active: bool
     date_revoked: Optional[datetime] = None
     revoked_by: Optional[int] = None
+
+
+class PenaltyUpdate(BaseModel):
+    reason: Optional[str] = Field(None, min_length=1)
+    issued_by: Optional[int] = Field(None, ge=1)
+    source_flag_id: Optional[int] = Field(None, ge=1)

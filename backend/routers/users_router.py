@@ -28,12 +28,22 @@ def register_user(payload: UserCreate):
     """Register a new user and return a JWT token and User."""
     return user_service.register(payload)
 # -------------------------------
-# LOGIN
+# LOGIN/OUT
 # -------------------------------
 @router.post("/login")
 def login(username: str, password: str):
     """Login user and return JWT token and User."""
     return user_service.login(username, password)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(current_user = Depends(get_current_user)):
+    """
+    Terminate the user's session(s) by invalidating any existing tokens.
+    """
+    current_user.token_version += 1   # invalidate all existing JWTs
+    user_service.save_user(current_user)           # write back to JSON/CSV
+    return
 # -------------------------------
 # UPDATE USER
 # -------------------------------

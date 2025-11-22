@@ -55,8 +55,8 @@ def test_list_all_users_admin_only(clean_users):
         make_user("2", "Bob", "b@x.com", role="user"),
     ])
 
-    admin_token = create_access_token("admin123", "admin")
-    user_token = create_access_token("1", "user")
+    admin_token = create_access_token("admin123", "admin", 0)
+    user_token = create_access_token("1", "user", 0)
 
     # Non-admin should fail
     res = client.get("/admin/users", headers={"Authorization": f"Bearer {user_token}"})
@@ -73,7 +73,7 @@ def test_list_all_users_admin_only(clean_users):
 def test_delete_user_as_admin(clean_users):
     # Arrange
     clean_users.append(make_user("1", "Target", "t@x.com"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     # Act
     res = client.delete("/admin/users/1", headers={"Authorization": f"Bearer {admin_token}"})
@@ -85,7 +85,7 @@ def test_delete_user_as_admin(clean_users):
 
 def test_delete_user_forbidden_for_non_admin(clean_users):
     clean_users.append(make_user("1", "Target", "t@x.com"))
-    user_token = create_access_token("1", "user")
+    user_token = create_access_token("1", "user", 0)
 
     res = client.delete("/admin/users/1", headers={"Authorization": f"Bearer {user_token}"})
     assert res.status_code == 403
@@ -94,7 +94,7 @@ def test_delete_user_forbidden_for_non_admin(clean_users):
 
 def test_promote_user_success(clean_users):
     clean_users.append(make_user("1", "NormalUser", "n@x.com", role="user"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.post("/admin/users/1/promote", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
@@ -105,7 +105,7 @@ def test_promote_user_success(clean_users):
 
 def test_promote_user_already_admin(clean_users):
     clean_users.append(make_user("1", "AdminUser", "a@x.com", role="admin"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.post("/admin/users/1/promote", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 400
@@ -114,7 +114,7 @@ def test_promote_user_already_admin(clean_users):
 def test_search_users_by_username(clean_users):
     clean_users.append(make_user("1", "Alice", "a@x.com", role="user"))
     clean_users.append(make_user("2", "Bob", "b@x.com", role="admin"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.get("/admin/users/search", params={"username": "bob"}, headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
@@ -124,7 +124,7 @@ def test_search_users_by_username(clean_users):
 
 def test_search_no_results(clean_users):
     clean_users.append(make_user("1", "Alice", "a@x.com", role="user"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.get("/admin/users/search", params={"username": "zzzzzz"}, headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
@@ -133,7 +133,7 @@ def test_search_no_results(clean_users):
 def test_search_users_by_email_partial_match(clean_users):
     clean_users.append(make_user("1", "Alice", "a@x.com", role="user"))
     clean_users.append(make_user("2", "Bob", "b@x.com", role="admin"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.get("/admin/users/search", params={"email": "@x"}, headers={"Authorization": f"Bearer {admin_token}"})
     
@@ -146,7 +146,7 @@ def test_search_users_by_email_partial_match(clean_users):
 def test_search_users_by_email_and_role(clean_users):
     clean_users.append(make_user("1", "User", "u@x.com", role="user"))
     clean_users.append(make_user("2", "Mod", "m@x.com", role="admin"))
-    admin_token = create_access_token("a1", "admin")
+    admin_token = create_access_token("a1", "admin", 0)
 
     res = client.get("/admin/users/search", params={"email": "u@x.com", "role": "user"}, headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
@@ -156,7 +156,7 @@ def test_search_users_by_email_and_role(clean_users):
 # GET /admin/users/{user_id}/reviews
 # -----------------------------
 def test_admin_can_get_user_reviews(monkeypatch):
-    admin_token = create_access_token("admin1", "admin")
+    admin_token = create_access_token("admin1", "admin", 0)
 
     fake_reviews = [
         {"movie_id": "m1", "rating": 8, "review_text": "Great"},
@@ -180,7 +180,7 @@ def test_admin_can_get_user_reviews(monkeypatch):
 
 
 def test_non_admin_cannot_get_user_reviews():
-    token = create_access_token("u1", "user")
+    token = create_access_token("u1", "user", 0)
 
     res = client.get(
         "/admin/users/u1/reviews",
@@ -194,7 +194,7 @@ def test_non_admin_cannot_get_user_reviews():
 # DELETE /admin/users/{id}/reviews/delete
 # -----------------------------
 def test_admin_can_delete_user_review(monkeypatch):
-    admin_token = create_access_token("adm", "admin")
+    admin_token = create_access_token("adm", "admin", 0)
 
     called = {}
 
@@ -218,7 +218,7 @@ def test_admin_can_delete_user_review(monkeypatch):
 
 
 def test_non_admin_cannot_delete_user_review():
-    token = create_access_token("u1", "user")
+    token = create_access_token("u1", "user", 0)
 
     res = client.delete(
         "/admin/users/u1/reviews/delete",

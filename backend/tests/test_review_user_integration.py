@@ -78,8 +78,7 @@ def mock_repos(monkeypatch):
 def test_get_reviews_by_user_id_returns_only_user_reviews(mock_repos):
     service = ReviewService()
     reviews, movies = service.get_reviews_by_user_id("u1")
-    print("DEBUG REVIEWS:", reviews)
-    print("TYPES:", [type(r) for r in reviews])
+
     # verify structure and content
     assert isinstance(reviews, list)
     assert len(reviews) == 2  # 2 movies reviewed by u1
