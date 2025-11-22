@@ -6,7 +6,8 @@ from pathlib import Path
 from fastapi import HTTPException, status
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from backend.repositories.movie_repo import MovieRepository
+from backend.repositories.reviews_repo import ReviewRepository
 
 
 class ReviewService:
