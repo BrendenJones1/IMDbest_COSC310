@@ -80,3 +80,29 @@ def test_delete_review_updates_metadata(movies_dir):
     reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
     assert "user-1" not in reviews
     assert reviews["user-2"]["rating"] == 3.0
+
+
+def test_upsert_same_user_preserves_count(movies_dir):
+    movie_id = create_movie_directory(movies_dir, "Pulp Fiction")
+    service = ReviewService()
+
+    # first review by user-a increments count
+    service.upsert_review("user-a", movie_id, ReviewCreate(rating=4.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 1
+    assert metadata["userRatingTotal"] == pytest.approx(4.0)
+    assert metadata["userRatingAverage"] == pytest.approx(4.0)
+
+    # update same user should NOT increment count, but adjust totals/average
+    service.upsert_review("user-a", movie_id, ReviewCreate(rating=2.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 1
+    assert metadata["userRatingTotal"] == pytest.approx(2.0)
+    assert metadata["userRatingAverage"] == pytest.approx(2.0)
+
+    # second distinct user increments count
+    service.upsert_review("user-b", movie_id, ReviewCreate(rating=3.0))
+    metadata = MovieRepository.get_movie_metadata(movie_id)
+    assert metadata["userRatingCount"] == 2
+    assert metadata["userRatingTotal"] == pytest.approx(5.0)
+    assert metadata["userRatingAverage"] == pytest.approx(2.5)
