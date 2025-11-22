@@ -6,17 +6,17 @@ from datetime import datetime
 
 
 class MovieItem(BaseModel):
-    movieTitle: str = Field(..., example="Inception")
-    addedAt: datetime = Field(..., example="2025-10-30T12:34:56+00:00")
+    movieTitle: str = Field(..., json_schema_extra={"example": "Inception"})
+    addedAt: datetime = Field(..., json_schema_extra={"example": "2025-10-30T12:34:56+00:00"})
 
 
 class UserWatchlist(BaseModel):
-    userId: str = Field(..., example="u1")
+    userId: str = Field(..., json_schema_extra={"example": "u1"})
     watchlist: List[MovieItem] = []
 
 
 class AddMovieRequest(BaseModel):
-    movieTitle: str = Field(..., example="Interstellar")
+    movieTitle: str = Field(..., json_schema_extra={"example": "Interstellar"})
 
 
 class WatchlistResponse(BaseModel):

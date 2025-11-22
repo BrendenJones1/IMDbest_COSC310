@@ -22,11 +22,7 @@ class MovieRepository:
     @staticmethod
     def movie_exists(movie_id: str) -> bool:
         # helper method to check if movie exists
-        try:
-            metadata = MovieRepository.get_movie_metadata(movie_id)
-            return metadata is not None
-        except Exception:
-            return False
+        return MovieRepository._resolve_movie_dir(movie_id) is not None
 
     @staticmethod
     def _resolve_movie_dir(movie_id: str) -> Optional[Path]:
@@ -112,26 +108,13 @@ class MovieRepository:
 
     @staticmethod
     def get_movie_metadata(movie_id: str) -> Dict[str, Any]:
-        # Resolve the folder for this movie id
         movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        if movie_dir is None:
-            # Return default metadata if movie folder doesn't exist
-            return {
-                "movie_id": movie_id,
-                "userRatingCount": 0,
-                "userRatingTotal": 0,
-                "userRatingAverage": 0.0
-            }
-        metadata_path = movie_dir / "metadata.json"
-        if not metadata_path.exists():
-            return {
-                "movie_id": movie_id,
-                "userRatingCount": 0,
-                "userRatingTotal": 0,
-                "userRatingAverage": 0.0
-            }
-        with metadata_path.open() as f:
-            return json.load(f)
+        metadata_path = (
+            movie_dir / "metadata.json"
+            if movie_dir is not None
+            else MOVIES_DIR / movie_id / "metadata.json"
+        )
+        return MovieRepository._load_metadata_file(metadata_path, movie_id)
 
     @staticmethod
     def save_movie_metadata(movie_id: str, metadata: Dict[str, Any]) -> None:

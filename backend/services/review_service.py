@@ -1,19 +1,74 @@
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from fastapi import HTTPException, status
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
 from repositories.movie_repo import MovieRepository, ReviewRepository
+from repositories.users_repo import UserRepository, user_repository
 
 
 class ReviewService:
+    def __init__(self, user_repo: Optional[UserRepository] = None) -> None:
+        self.user_repo = user_repo or user_repository
+
+    def _parse_datetime(self, value: Optional[Any]) -> datetime:
+        if value is None:
+            return datetime.now(timezone.utc)
+        if isinstance(value, datetime):
+            return value
+        try:
+            text = str(value)
+            if text.endswith("Z"):
+                text = text[:-1]
+            return datetime.fromisoformat(text)
+        except Exception:
+            return datetime.now(timezone.utc)
 
     def _ensure_movie_exists(self, movie_id: str):
+        if not MovieRepository.movie_exists(movie_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="movie not found",
+            )
+
+    def list_reviews(self, movie_id: str, sort: str = "recent"):
+        """
+        Return list of serialized review dicts for a movie sorted by upvotes or recency.
+        """
+        self._ensure_movie_exists(movie_id)
+        review_data = ReviewRepository.get_review_data(movie_id) or {}
+        reviews_map = review_data.get("reviews", {})
+
         try:
-            MovieRepository._resolve_movie_dir(movie_id)
-        except FileNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="movie not found")
+            users = self.user_repo.load_users() or []
+        except Exception:
+            users = []
+        usernames = {user.get("id"): user.get("username") for user in users}
+
+        items: List[Dict[str, Any]] = []
+        for user_id, raw in reviews_map.items():
+            created_raw = raw.get("created_at") or raw.get("timestamp")
+            updated_raw = raw.get("updated_at") or raw.get("timestamp") or raw.get("created_at")
+            payload = {
+                "user_id": user_id,
+                "rating": float(raw.get("rating") or 0),
+                "review_text": raw.get("review_text"),
+                "upvotes": int(raw.get("upvotes") or 0),
+                "downvotes": int(raw.get("downvotes") or 0),
+                "created_at": self._parse_datetime(created_raw),
+                "updated_at": self._parse_datetime(updated_raw),
+            }
+            review_out = ReviewOut(**payload)
+            review_dict = review_out.model_dump()
+            review_dict["username"] = usernames.get(user_id, user_id)
+            items.append(review_dict)
+
+        if sort == "upvotes":
+            items.sort(key=lambda item: (item["upvotes"], item["created_at"]), reverse=True)
+        else:
+            items.sort(key=lambda item: item["created_at"], reverse=True)
+        return items
 
     def upsert_review(self, user_id: str, movie_id: str, review: ReviewCreate) -> ReviewOut:
         self._ensure_movie_exists(movie_id)

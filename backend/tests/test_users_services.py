@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from backend.services.users_service import user_service as users_service
 from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
-from datetime import datetime
+from datetime import datetime, timezone
 
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
@@ -26,7 +26,7 @@ def clean_users(monkeypatch):
 def test_register_sets_registered_at_field(clean_users):
 
     # capture time window around the call
-    before = datetime.utcnow()
+    before = datetime.now(timezone.utc)
     result = users_service.register(
         UserCreate(
             username="alice",
@@ -34,7 +34,7 @@ def test_register_sets_registered_at_field(clean_users):
             password="Secret123!"
         )
     )
-    after = datetime.utcnow()
+    after = datetime.now(timezone.utc)
 
     user_public = result["user"]
 
@@ -45,7 +45,7 @@ def test_register_sets_registered_at_field(clean_users):
     assert isinstance(user_public.registered_at, datetime), \
         f"registered_at should be datetime, got {type(user_public.registered_at)}"
 
-    # 3) value is within the call window (≈ set by datetime.utcnow())
+    # 3) value is within the call window (≈ set by datetime.now(timezone.utc))
     assert before <= user_public.registered_at <= after, \
         "registered_at is not within expected time window"
 
