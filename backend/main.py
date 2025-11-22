@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import watchlist_router
+from backend.routers.watchlist_router import router as watchlist_router
 from backend.routers.search_router import router as search_router
 from backend.routers.reviews_router import router as reviews_router
 from backend.routers.movies_router import router as movies_router
@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 
-app.include_router(watchlist_router.router)
+app.include_router(watchlist_router)
 app.include_router(search_router)
 app.include_router(reviews_router)
 app.include_router(movies_router)
