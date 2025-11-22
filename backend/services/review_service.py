@@ -167,10 +167,14 @@ class ReviewService:
         #subtract the user rating from total and update metadata
         metadata["userRatingTotal"] -= current["rating"]
         metadata["userRatingCount"] -= 1
-        metadata["userRatingAverage"] = (
-            round(metadata["userRatingTotal"] / metadata["userRatingCount"], 2)
-            if metadata["userRatingCount"] > 0 else 0.0
-        )
+        if metadata["userRatingCount"] <= 0:
+            metadata["userRatingCount"] = 0
+            metadata["userRatingTotal"] = 0.0
+            metadata["userRatingAverage"] = 0.0
+        else:
+            metadata["userRatingAverage"] = round(
+                metadata["userRatingTotal"] / metadata["userRatingCount"], 2
+            )
 
         # remove review
         del review_data["reviews"][user_id]
