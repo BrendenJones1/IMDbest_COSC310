@@ -50,6 +50,8 @@ def test_metadata_present_returns_values():
     r = client.get(f"/movies/{movie_id}/metadata")
     assert r.status_code == 200
     data = r.json()
+    # response shape should contain only the expected fields
+    assert set(data.keys()) == {"movie_id", "title", "userRatingAverage", "userRatingCount"}
     assert data["movie_id"] == movie_id
     assert data["title"] == "Test Meta Present"
     assert data["userRatingAverage"] == 8.2
@@ -61,6 +63,8 @@ def test_metadata_missing_returns_defaults():
     r = client.get(f"/movies/{movie_id}/metadata")
     assert r.status_code == 200
     data = r.json()
+    # response shape should contain only the expected fields
+    assert set(data.keys()) == {"movie_id", "title", "userRatingAverage", "userRatingCount"}
     assert data["movie_id"] == movie_id
     # Title may be None if not present; average and count should default
     assert data["userRatingAverage"] == 0.0
