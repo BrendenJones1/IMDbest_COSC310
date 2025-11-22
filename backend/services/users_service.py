@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Dict, Any
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
@@ -11,9 +12,13 @@ from backend.schemas.review import ReviewOut
 from backend.services.review_service import ReviewService
 from backend.services.penalties_service import PenaltiesService
 from backend.services.flags_service import FlagsService
-from datetime import datetime, timezone
 
 class UserService:
+    """
+    Coordinate user lifecycle operations, including auth, profile updates,
+    reviews, penalties, and moderation flags.
+    """
+
     def __init__(
         self,
         user_repo: UserRepository = user_repository,
@@ -21,21 +26,24 @@ class UserService:
         penalty_service: PenaltiesService | None = None,
         flags_service: FlagsService | None = None,
     ) -> None:
+        """
+        Initialize the user service with its backing repository and related services.
+        """
         self.user_repo = user_repo
         self.review_service = review_service or ReviewService()
         self.penalty_service = penalty_service or PenaltiesService()
         self.flags_service = flags_service or FlagsService()
 
-    # ---------------------------------
-    #   LIST
-    # ---------------------------------
     def list_users(self) -> List[UserPublic]:
+        """
+        Return all users as public-safe representations.
+        """
         return [UserPublic(**it) for it in (self.user_repo.load_users() or [])]
 
-    # ---------------------------------
-    #   SAVE USER
-    # ---------------------------------
     def save_user(self, payload: CurrentUser) -> None:
+        """
+        Persist changes to a current user payload (e.g., updated token_version) back to storage.
+        """
         users = self.user_repo.load_users() or []
 
         target_username = payload.username.strip().lower()
@@ -56,6 +64,9 @@ class UserService:
     #   REGISTRATION/LOGIN
     # ---------------------------------
     def register(self, payload: UserCreate) -> Dict[str, Any]:
+        """
+        Register a new user, enforcing unique username and email, and issue an access token.
+        """
         users = self.user_repo.load_users() or []
         new_id = str(uuid.uuid4())
 
@@ -91,16 +102,23 @@ class UserService:
         return {"token": token, "user": UserPublic(**new_user)}
 
     def login(self, username: str, password: str) -> Dict[str, Any]:
+        """
+        Authenticate a user by username and password, returning a new access token on success.
+        """
         try:
             user = self._internal_get_user(username)
         except HTTPException:
-        # normalize to auth error so we don’t leak “user not found”
+            # Normalize to a generic auth error to avoid leaking existence of accounts
             raise HTTPException(status_code=401, detail="Username or password incorrect")
 
         if not verify_password(password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Username or password incorrect")
 
-        token = create_access_token(sub=user["id"], role=user["role"], token_version=user["token_version"])
+        token = create_access_token(
+            sub=user["id"],
+            role=user["role"],
+            token_version=user["token_version"],
+        )
 
         return {"token": token, "user": UserPublic(**user)}
 
@@ -108,6 +126,9 @@ class UserService:
     #   GET USER
     # ---------------------------------
     def get_user_by_id(self, user_id: str) -> UserPublic:
+        """
+        Retrieve a single user as public data by their unique id.
+        """
         users = self.user_repo.load_users() or []
         for it in users:
             if it.get("id") == user_id:
@@ -115,6 +136,9 @@ class UserService:
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
     def get_user_by_username(self, username: str) -> UserPublic:
+        """
+        Retrieve a single user as public data by their username.
+        """
         users = self.user_repo.load_users() or []
         for it in users:
             if it.get("username").lower() == username.lower():
@@ -123,6 +147,9 @@ class UserService:
 
     # Returns *internal* user dict (with email, hash, penalties, etc.)
     def _internal_get_user(self, username: str) -> dict:
+        """
+        Return the full internal user record (including sensitive fields) by username.
+        """
         users = self.user_repo.load_users() or []
         for it in users:
             if it.get("username").lower() == username.lower():
@@ -133,6 +160,9 @@ class UserService:
     #   USER UPDATE/DELETE
     # ---------------------------------
     def update_user(self, user_id: str, payload: UserUpdate) -> UserPublic:
+        """
+        Apply partial updates to a user profile, respecting uniqueness and password hashing rules.
+        """
         users = self.user_repo.load_users() or []
 
         for idx, it in enumerate(users):
@@ -174,6 +204,9 @@ class UserService:
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
     def delete_user(self, user_id: str) -> None:
+        """
+        Permanently remove a user record by id.
+        """
         users = self.user_repo.load_users() or []
         new_users = [it for it in users if it.get("id") != user_id]
         if len(new_users) == len(users):
@@ -184,7 +217,9 @@ class UserService:
     #   SEARCH USERS
     # ---------------------------------
     def search_users(self, username: str = "") -> list[dict]:
-        """Case-insensitive partial match search. Returns list of dicts."""
+        """
+        Perform a case-insensitive partial username search and return public user dicts.
+        """
         users = self.user_repo.load_users() or []
         username = (username or "").strip().lower()
 
@@ -196,9 +231,14 @@ class UserService:
         return matches
 
     def search_users_admin(
-        self, username: str = "", email: str = "", role: str = ""
+        self,
+        username: str = "",
+        email: str = "",
+        role: str = "",
     ) -> list[dict]:
-        """Case-insensitive partial match on username/email/role."""
+        """
+        Perform case-insensitive partial matches on username, email, and role for admin usage.
+        """
         users = self.user_repo.load_users() or []
 
         username = (username or "").strip().lower()
@@ -224,7 +264,9 @@ class UserService:
     #   PROMOTE USER
     # ---------------------------------
     def promote_user(self, user_id: str) -> dict:
-        """Promote a user to admin role."""
+        """
+        Promote a user to the admin role, handling persistence and basic error cases.
+        """
         try:
             users = self.user_repo.load_users() or []
         except Exception as e:
@@ -255,21 +297,30 @@ class UserService:
     #   REVIEW MANAGEMENT
     # ---------------------------------
     def get_user_reviews(self, user_id: str) -> list[ReviewOut]:
+        """
+        Return all reviews authored by a specific user.
+        """
         reviews, _ = self.review_service.get_reviews_by_user_id(user_id)
         return reviews
 
     def remove_review_from_user(self, user_id: str, movie_id: str) -> None:
+        """
+        Delegate deletion of a user's review for a given movie to the review service.
+        """
         return self.review_service.delete_user_review(user_id, movie_id)
 
     def sync_user_reviews(self, user_id: str) -> None:
+        """
+        Refresh the reviews snapshot stored on a user record from the review service.
+        """
         reviews, _ = self.review_service.get_reviews_by_user_id(user_id)
         users = self.user_repo.load_users() or []
 
         for u in users:
-                if u["id"] == user_id:
-                    u["reviews"] = [r.model_dump() for r in reviews]
-                    break
-                
+            if u["id"] == user_id:
+                u["reviews"] = [r.model_dump() for r in reviews]
+                break
+
         self.user_repo.save_users(users)
 
     # ---------------------------------
@@ -282,8 +333,9 @@ class UserService:
         admin_id: str,
         flag_id: str | None = None,
     ):
-        """Create a penalty entry and sync to user record."""
-        # 1. Create penalty in penalties.json
+        """
+        Create a penalty entry for a user and attach it to their stored record.
+        """
         new_penalty = self.penalty_service.add_penalty(
             user_id=user_id,
             reason=reason,
@@ -291,7 +343,6 @@ class UserService:
             source_flag_id=flag_id,
         )
 
-        # 2. Attach penalty to user record
         users = self.user_repo.load_users() or []
         for u in users:
             if u["id"] == user_id:
@@ -304,11 +355,15 @@ class UserService:
         return new_penalty
 
     def get_user_penalties(self, user_id: str) -> list[dict]:
-        """Return all penalties for a given user."""
+        """
+        Return all penalties associated with a given user.
+        """
         return self.penalty_service.get_for_user(user_id)
 
     def deactivate_penalty(self, penalty_id: int, admin_id: str) -> dict | None:
-        """Deactivate a penalty and sync users."""
+        """
+        Deactivate a penalty and propagate the updated penalty to any user records that reference it.
+        """
         updated_penalty = self.penalty_service.deactivate_penalty(
             penalty_id, admin_id
         )
@@ -320,6 +375,8 @@ class UserService:
         for u in users:
             if "penalties" in u:
                 for p in u["penalties"]:
+
+
                     if p["penalty_id"] == penalty_id:
                         p.update(updated_penalty)
 
@@ -330,14 +387,21 @@ class UserService:
     #   FLAG MANAGEMENT
     # ---------------------------------
     def get_user_flags(self, user_id: str):
+        """
+        Retrieve all moderation flags that target a specific user.
+        """
         all_flags = self.flags_service.get_all_flags()
         return [f for f in all_flags if f["flagged_user_id"] == user_id]
 
     def change_flag_status(self, flag_id: int, new_status: str):
+        """
+        Update the status of a flag and return the updated record, or None if not found.
+        """
         updated_flag = self.flags_service.update_flag_status(flag_id, new_status)
         if not updated_flag:
             return None
         return updated_flag
-    
-## Shared Service Instance
+
+
+# Shared Service Instance
 user_service = UserService()

@@ -16,6 +16,9 @@ service = PenaltiesService()
 
 @router.post("", response_model=PenaltyOut, status_code=status.HTTP_201_CREATED)
 def issue_penalty(payload: PenaltyCreate):
+    """
+    Create and record a new penalty against a user based on the provided details.
+    """
     return service.add_penalty(
         user_id=payload.user_id,
         reason=payload.reason,
@@ -26,13 +29,19 @@ def issue_penalty(payload: PenaltyCreate):
 
 @router.get("", response_model=List[PenaltyOut])
 def list_penalties(user_id: int | None = Query(default=None, ge=1)):
+    """
+    List penalties, optionally restricted to those belonging to a specific user.
+    """
     if user_id is not None:
-        return service.get_for_user(user_id)
+        return service.get_for_user(user_id)  # scoped lookup for a single user's penalties
     return service.get_all()
 
 
 @router.post("/{penalty_id}/deactivate", response_model=PenaltyOut)
 def deactivate_penalty(penalty_id: int, payload: PenaltyDeactivateRequest):
+    """
+    Deactivate an active penalty, recording which admin revoked it.
+    """
     penalty = service.deactivate_penalty(penalty_id, revoked_by=payload.revoked_by)
 
     if not penalty:

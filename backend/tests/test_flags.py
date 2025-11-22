@@ -11,32 +11,31 @@ from backend.routers.admin_router import router as admin_router
 client = TestClient(app)
 
 
-# ----------------------------------------------------------------------
-# FIXTURE: ISOLATED IN-MEMORY FLAG STORE
-# ----------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def mock_flags_file(tmp_path, monkeypatch):
-    """Use a temporary flags.json file for every test."""
+    """
+    Use a temporary flags.json file for each test and wire it into the services.
+    """
     fake_file = tmp_path / "flags.json"
-    fake_file.write_text("[]")  # start empty
+    fake_file.write_text("[]")  # start with an empty flag store
 
     service = FlagsService(path=str(fake_file))
 
-    # Patch the instance inside users_service (UserService instance)
+    # Patch the instance inside the shared UserService
     monkeypatch.setattr(users_service, "flags_service", service)
 
-    # Patch whatever the admin router is using
+    # Patch the instance referenced by the admin router
     from backend.routers import admin_router
     monkeypatch.setattr(admin_router, "flags_service", service)
 
     return service
 
 
-# ----------------------------------------------------------------------
-# FIXTURE: In-memory user store
-# ----------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
+    """
+    Provide an in-memory user store for each test by patching the user repository.
+    """
     store: list[dict] = []
 
     def fake_load():
@@ -45,18 +44,17 @@ def clean_users(monkeypatch):
     def fake_save(data):
         store[:] = data
 
-    # IMPORTANT CHANGE: patch the repository on the service,
-    # not load_users/save_users on the service directly
+    # Patch the repository methods used by UserService
     monkeypatch.setattr(users_service.user_repo, "load_users", fake_load)
     monkeypatch.setattr(users_service.user_repo, "save_users", fake_save)
-    
+
     return store
 
 
-# ----------------------------------------------------------------------
-# Helper to build fake users
-# ----------------------------------------------------------------------
-def make_user(id: str, username: str, email: str, role="user"):
+def make_user(id: str, username: str, email: str, role: str = "user"):
+    """
+    Build a minimal user record suitable for flag-related tests.
+    """
     return {
         "id": id,
         "username": username,
@@ -65,16 +63,14 @@ def make_user(id: str, username: str, email: str, role="user"):
         "role": role,
         "penalties": [],
         "reviews": [],
-        "watchlist": []
+        "watchlist": [],
     }
 
 
-# ======================================================================
-# USERS_SERVICE TESTS
-# ======================================================================
-
 def test_users_service_get_user_flags(clean_users, mock_flags_file):
-    # Arrange
+    """
+    UserService.get_user_flags should return only flags targeting the specified user.
+    """
     clean_users.append(make_user("u1", "Alice", "a@x.com"))
     clean_users.append(make_user("u2", "Bob", "b@x.com"))
 
@@ -82,14 +78,16 @@ def test_users_service_get_user_flags(clean_users, mock_flags_file):
     mock_flags_file.add_flag("r2", "mod2", "u1", "Spam")
     mock_flags_file.add_flag("r3", "mod3", "u2", "Rude")
 
-    # Act
     flags = users_service.get_user_flags("u1")
 
-    # Assert
     assert len(flags) == 2
     assert all(f["flagged_user_id"] == "u1" for f in flags)
 
+
 def test_users_service_change_flag_status(clean_users, mock_flags_file):
+    """
+    UserService.change_flag_status should delegate status updates to the flag service.
+    """
     clean_users.append(make_user("u1", "Alice", "a@x.com"))
 
     flag = mock_flags_file.add_flag("r1", "admin", "u1", "Test flag")
@@ -98,11 +96,11 @@ def test_users_service_change_flag_status(clean_users, mock_flags_file):
 
     assert updated["status"] == "approved"
 
-# ======================================================================
-# ADMIN ROUTER TESTS
-# ======================================================================
 
 def test_admin_get_all_flags(clean_users, mock_flags_file):
+    """
+    Admin endpoint /admin/flags should return all flags for an admin user.
+    """
     clean_users.append(make_user("admin", "A", "admin@x.com", role="admin"))
 
     mock_flags_file.add_flag("r1", "u9", "u1", "Rule violation")
@@ -112,7 +110,7 @@ def test_admin_get_all_flags(clean_users, mock_flags_file):
 
     res = client.get(
         "/admin/flags",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert res.status_code == 200
@@ -120,6 +118,9 @@ def test_admin_get_all_flags(clean_users, mock_flags_file):
 
 
 def test_admin_get_pending_flags(clean_users, mock_flags_file):
+    """
+    Admin endpoint /admin/flags/pending should include only flags still marked pending.
+    """
     clean_users.append(make_user("admin", "A", "admin@x.com", role="admin"))
 
     f1 = mock_flags_file.add_flag("r1", "u9", "u1", "Rule violation")
@@ -130,7 +131,7 @@ def test_admin_get_pending_flags(clean_users, mock_flags_file):
 
     res = client.get(
         "/admin/flags/pending",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert res.status_code == 200
@@ -140,6 +141,9 @@ def test_admin_get_pending_flags(clean_users, mock_flags_file):
 
 
 def test_admin_update_flag_status(clean_users, mock_flags_file):
+    """
+    Admins can update a flag's status via /admin/flags/{flag_id}/status.
+    """
     clean_users.append(make_user("admin", "A", "admin@x.com", role="admin"))
 
     flag = mock_flags_file.add_flag("r1", "mod9", "u1", "Bad behavior")
@@ -149,7 +153,7 @@ def test_admin_update_flag_status(clean_users, mock_flags_file):
     res = client.put(
         f"/admin/flags/{flag['flag_id']}/status",
         params={"new_status": "approved"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert res.status_code == 200
@@ -157,15 +161,18 @@ def test_admin_update_flag_status(clean_users, mock_flags_file):
 
 
 def test_admin_rejects_non_admin_access(clean_users, mock_flags_file):
+    """
+    Non-admin users should be forbidden from accessing /admin/flags.
+    """
     clean_users.append(make_user("u1", "Normal", "n@x.com", role="user"))
 
-    flag = mock_flags_file.add_flag("r1", "u1", "u1", "Test issue")
+    mock_flags_file.add_flag("r1", "u1", "u1", "Test issue")
 
-    token = create_access_token("u1", "user")  # Not admin
+    token = create_access_token("u1", "user")  # not an admin
 
     res = client.get(
         "/admin/flags",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert res.status_code == 403

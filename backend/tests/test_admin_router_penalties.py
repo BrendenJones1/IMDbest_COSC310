@@ -5,11 +5,12 @@ from backend.utils.security import create_access_token
 
 client = TestClient(app)
 
-# -----------------------------
-# Fixture: In-memory users.json
-# -----------------------------
+
 @pytest.fixture(autouse=True)
 def clean_users(monkeypatch):
+    """
+    Provide an in-memory users store for each test by monkeypatching the user repository.
+    """
     from backend.services.users_service import user_service  # shared instance
 
     store: list[dict] = []
@@ -18,18 +19,19 @@ def clean_users(monkeypatch):
         return store.copy()
 
     def fake_save(data):
-        store[:] = data
+        store[:] = data  # keep shared list reference stable across tests
 
     monkeypatch.setattr(user_service.user_repo, "load_users", fake_load)
     monkeypatch.setattr(user_service.user_repo, "save_users", fake_save)
 
     return store
 
-# -----------------------------
-# Fixture: isolated penalties JSON
-# -----------------------------
+
 @pytest.fixture(autouse=True)
 def clean_penalties(monkeypatch, tmp_path):
+    """
+    Isolate penalties storage to a temporary JSON file for each test run.
+    """
     fake_penalty_file = tmp_path / "penalties.json"
     fake_penalty_file.write_text("[]")
 
@@ -37,13 +39,13 @@ def clean_penalties(monkeypatch, tmp_path):
     from backend.services.users_service import user_service
 
     user_service.penalty_service = PenaltiesService(path=str(fake_penalty_file))
-
     return user_service.penalty_service
 
-# -----------------------------
-# Helper: make a user
-# -----------------------------
+
 def make_user(id, username, role):
+    """
+    Build a minimal user record suitable for tests.
+    """
     return {
         "id": id,
         "username": username,
@@ -52,47 +54,47 @@ def make_user(id, username, role):
         "role": role,
         "penalties": [],
         "reviews": [],
-        "watchlist": []
+        "watchlist": [],
     }
 
 
-# ============================================================
-# TEST: Non-admin forbidden
-# ============================================================
 def test_penalties_admin_required(clean_users):
+    """
+    Non-admin users must be forbidden from accessing the penalties endpoint.
+    """
     clean_users.append(make_user("u1", "UserOne", "user"))
 
     user_token = create_access_token("u1", "user")
 
     res = client.get(
         "/admin/users/u1/penalties",
-        headers={"Authorization": f"Bearer {user_token}"}
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert res.status_code == 403
 
 
-# ============================================================
-# TEST: Admin can view penalties
-# ============================================================
 def test_admin_can_get_penalties(clean_users):
+    """
+    Admins can fetch penalties for a user and receive an empty list when none exist.
+    """
     clean_users.append(make_user("u1", "Bob", "user"))
 
     admin_token = create_access_token("admin1", "admin")
 
     res = client.get(
         "/admin/users/u1/penalties",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     assert res.status_code == 200
     assert res.json() == []
 
 
-# ============================================================
-# TEST: Admin can issue a penalty
-# ============================================================
 def test_admin_issue_penalty(clean_users):
+    """
+    Admins can issue a penalty and it is reflected in both the response and user record.
+    """
     clean_users.append(make_user("u1", "Bob", "user"))
 
     admin_token = create_access_token("admin1", "admin")
@@ -100,38 +102,36 @@ def test_admin_issue_penalty(clean_users):
     res = client.post(
         "/admin/users/u1/penalties",
         params={"reason": "TestPenalty"},
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     assert res.status_code == 200
     penalty = res.json()
     assert penalty["reason"] == "TestPenalty"
 
-    # User updated
+    # Verify the in-memory user store was updated with the new penalty
     assert len(clean_users[0]["penalties"]) == 1
 
 
-# ============================================================
-# TEST: Admin can deactivate penalty
-# ============================================================
 def test_admin_deactivate_penalty(clean_users):
+    """
+    Admins can deactivate an existing penalty, marking it as inactive.
+    """
     clean_users.append(make_user("u1", "Bob", "user"))
 
     admin_token = create_access_token("admin1", "admin")
 
-    # Issue a penalty
     issue = client.post(
         "/admin/users/u1/penalties",
         params={"reason": "Spam"},
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     ).json()
 
     p_id = issue["penalty_id"]
 
-    # Deactivate it
     res = client.put(
         f"/admin/penalties/{p_id}/deactivate",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     assert res.status_code == 200

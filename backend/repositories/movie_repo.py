@@ -15,11 +15,21 @@ class MovieRepository:
 
     @staticmethod
     def _slug(title):
-        # very simple id: lowercase + spaces -> hyphens
+        """
+        Generate a simple, stable identifier from a movie title.
+        """
         return title.strip().lower().replace(" ", "-")
 
     
     @staticmethod
+    def _resolve_movie_dir(movie_id: str) -> Path:
+        """
+        Locate the on-disk directory for a movie id, accepting raw ids or slugified titles.
+        """
+        normalized = movie_id.strip().lower()
+        direct_path = MOVIES_DIR / movie_id
+        if direct_path.is_dir():
+            return direct_path
     def movie_exists(movie_id: str) -> bool:
         # helper method to check if movie exists
         return MovieRepository._resolve_movie_dir(movie_id) is not None
@@ -41,13 +51,16 @@ class MovieRepository:
     @staticmethod
     def _metadata_path(movie_id: str) -> Path:
         """
-        Compute the metadata.json path for a given movie id (slug).
-        Does not create directories; callers decide persistence.
+        Resolve the path to a movie's metadata.json, creating its directory on demand.
         """
-        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
-        if movie_dir is None:
-            return MOVIES_DIR / movie_id / "metadata.json"
+        try:
+            movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        except FileNotFoundError:
+            # Allow tests or new movies to automatically create a slug-based folder
+            movie_dir = MOVIES_DIR / movie_id
+            movie_dir.mkdir(parents=True, exist_ok=True)
         return movie_dir / "metadata.json"
+
 
     @staticmethod
     def _load_metadata_file(metadata_path: Path, movie_id: str) -> Dict[str, Any]:
@@ -85,9 +98,7 @@ class MovieRepository:
     @staticmethod
     def search_movies(q: str, include_metadata: bool = False):
         """
-        Search movies by substring in the title. If q is empty, return all movies.
-        When include_metadata is True, each result will include a 'metadata' key
-        populated from the movie's metadata.json.
+        Search movies by partial title, optionally returning metadata for each match.
         """
         query = (q or "").strip().lower()
         candidates = MovieRepository.list_movies()
@@ -108,6 +119,77 @@ class MovieRepository:
 
     @staticmethod
     def get_movie_metadata(movie_id: str) -> Dict[str, Any]:
+        """
+        Load stored metadata for a movie and ensure rating fields are always present.
+        """
+        metadata_path = MovieRepository._metadata_path(movie_id)
+        if not metadata_path.exists():
+            metadata = {}
+        else:
+            with metadata_path.open() as f:
+                metadata = json.load(f)
+
+        metadata.setdefault("movie_id", movie_id)
+        metadata.setdefault("userRatingCount", 0)
+        metadata.setdefault("userRatingTotal", 0.0)
+        metadata.setdefault("userRatingAverage", 0.0)
+        return metadata
+
+    @staticmethod
+    def save_movie_metadata(movie_id: str, metadata: Dict[str, Any]) -> None:
+        """
+        Persist metadata for a movie to its on-disk metadata.json file.
+        """
+        metadata_path = MovieRepository._metadata_path(movie_id)
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        with metadata_path.open("w") as f:
+            json.dump(metadata, f, indent=2)
+
+
+class ReviewRepository:
+    @staticmethod
+    def _review_path(movie_id: str) -> Path:
+        """
+        Resolve the path to a movie's user_reviews.json, creating its directory if needed.
+        """
+        try:
+            movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        except FileNotFoundError:
+            movie_dir = MOVIES_DIR / movie_id
+            movie_dir.mkdir(parents=True, exist_ok=True)
+        return movie_dir / "user_reviews.json"
+
+    @staticmethod
+    def get_review_data(movie_id: str) -> Dict[str, Any]:
+        """
+        Load user review data for a movie and normalize it to a {'reviews': {...}} structure.
+        """
+        review_path = ReviewRepository._review_path(movie_id)
+        if not review_path.exists():
+            return {"reviews": {}}
+
+        with review_path.open() as f:
+            content = f.read().strip()
+            if not content:
+                return {"reviews": {}}
+            payload = json.loads(content)
+
+        # Accept both wrapped and legacy flat JSON formats for stored reviews.
+        if isinstance(payload, dict) and "reviews" in payload and isinstance(payload["reviews"], dict):
+            return {"reviews": payload["reviews"]}
+        if isinstance(payload, dict):
+            return {"reviews": payload}
+        raise ValueError("Review data must be a JSON object")
+
+    @staticmethod
+    def save_review_data(movie_id: str, data: Dict[str, Any]) -> None:
+        """
+        Persist normalized review data for a movie to its user_reviews.json file.
+        """
+        review_path = ReviewRepository._review_path(movie_id)
+        review_path.parent.mkdir(parents=True, exist_ok=True)
+        with review_path.open("w") as f:
+            json.dump({"reviews": data.get("reviews", {})}, f, indent=2)
         movie_dir = MovieRepository._resolve_movie_dir(movie_id)
         metadata_path = (
             movie_dir / "metadata.json"
