@@ -66,8 +66,6 @@ def test_delete_review_updates_metadata(movies_dir):
     reviews = ReviewRepository.get_review_data(movie_id)["reviews"]
     assert "user-1" not in reviews
     assert reviews["user-2"]["rating"] == 3.0
-<<<<<<< Updated upstream
-=======
 
 
 def test_delete_last_review_recalculates_to_zero(movies_dir):
@@ -145,4 +143,4 @@ def test_get_reviews_by_user_id_skips_faulty_movie(monkeypatch, movies_dir):
     # Should skip the bad movie and still return the good one
     assert len(reviews) == 1
     assert movies == [good_movie_id]
->>>>>>> Stashed changes
+
