@@ -4,6 +4,7 @@ from backend.services.users_service import user_service
 from backend.services.flags_service import FlagsService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+flags_service = FlagsService()
 
 flags_service = FlagsService()
 
@@ -134,7 +135,6 @@ def admin_deactivate_penalty(
 
     return result
 
-
 @router.get("/flags")
 def get_all_flags(current_user: dict = Depends(decode_access_token)):
     """
@@ -165,10 +165,10 @@ def update_flag_status(
     require_admin(current_user)
 
     if new_status not in {"approved", "rejected", "pending"}:
-        return {"error": "invalid status"}
+        raise HTTPException(status_code=400, detail="invalid status")
 
     updated = user_service.change_flag_status(flag_id, new_status)
     if not updated:
-        return {"error": "flag not found"}
+        raise HTTPException(status_code=404, detail="flag not found")
 
     return updated

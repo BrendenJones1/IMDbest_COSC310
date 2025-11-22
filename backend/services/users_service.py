@@ -2,6 +2,8 @@ import uuid
 from typing import List, Dict, Any
 from datetime import datetime
 from contextlib import contextmanager
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 
 from schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
@@ -12,7 +14,6 @@ from backend.schemas.review import ReviewOut
 from backend.services.review_service import ReviewService
 from backend.services.penalties_service import PenaltiesService
 from backend.services.flags_service import FlagsService
-
 
 class UserService:
     """
@@ -100,18 +101,18 @@ class UserService:
 
             new_user = User(
                 id=new_id,
-                username=username,
-                email=email,
+                username=payload.username.strip(),
+                email=payload.email.strip(),
                 password_hash=hash_password(payload.password),
                 role=role,
                 penalties=[],
                 reviews=[],
                 watchlist=[],
                 token_version=0,
-                registered_at=datetime.utcnow(),
-            ).model_dump(mode="json")
+                registered_at=datetime.now(timezone.utc)
+            ).model_dump()
 
-            users.append(new_user)
+              users.append(new_user)
 
         token = create_access_token(new_user["id"], new_user["role"], new_user["token_version"])
         return {"token": token, "user": UserPublic(**new_user)}

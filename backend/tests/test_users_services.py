@@ -5,6 +5,7 @@ from backend.schemas.user import UserCreate, UserUpdate
 from backend.utils.security import verify_password
 from datetime import datetime
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +33,7 @@ def test_register_sets_registered_at_field(clean_users):
     """
     Registering a user should set registered_at as a datetime within the call window and persist it.
     """
-    before = datetime.utcnow()
+    before = datetime.now(timezone.utc)
     result = users_service.register(
         UserCreate(
             username="alice",
@@ -40,7 +41,7 @@ def test_register_sets_registered_at_field(clean_users):
             password="Secret123!",
         )
     )
-    after = datetime.utcnow()
+    after = datetime.now(timezone.utc)
 
     user_public = result["user"]
 

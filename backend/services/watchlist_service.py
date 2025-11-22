@@ -3,21 +3,37 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock  # lock for concurrent access
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
 
+from backend.repositories.watchlist_repo import WatchlistRepository
+
+# Path to the JSON data file (tests monkeypatch this)
 WATCHLIST_FILE = Path(__file__).resolve().parents[1] / "data" / "watchlist.json"
 
 # module-level lock to protect load/save + read-modify-write sequences
 _WATCHLIST_LOCK = RLock()
 
 
+def _get_repo() -> WatchlistRepository:
+    """
+    Create a repository using the CURRENT value of WATCHLIST_FILE.
+
+    This is important because tests monkeypatch WATCHLIST_FILE to point to
+    a temporary file, and we want the repository to follow that change.
+    """
+    return WatchlistRepository(str(WATCHLIST_FILE))
+
+
 def _now_utc_iso() -> str:
-    """
-    Return the current time as a timezone-aware ISO 8601 string in UTC.
-    """
+    """Return the current UTC timestamp in ISO8601 format."""
     return datetime.now(timezone.utc).isoformat()
 
 
-def load_watchlists():
+# -------- Compatibility wrappers used by tests --------
+
+def load_watchlists() -> Dict[str, List[dict]]:
     """
     Load all user watchlists from the backing JSON file, or return an empty structure.
     Protected by a lock to avoid concurrent read/write races.
@@ -29,7 +45,7 @@ def load_watchlists():
             return json.load(f)
 
 
-def save_watchlists(data):
+def save_watchlists(data: Dict[str, Any]) -> None:
     """
     Persist the provided watchlist data to the backing JSON file.
     Writes are atomic via a temp file + os.replace and protected by a lock.
@@ -43,9 +59,10 @@ def save_watchlists(data):
         os.replace(tmp_path, WATCHLIST_FILE)
 
 
-def get_user_watchlist(user_id: str):
+def get_user_watchlist(user_id: str) -> List[dict]:
     """
-    Return the watchlist for a given user_id, or an empty list if the user has none.
+    Return the list of watchlist entries for a given user.
+    If the user does not exist, return an empty list.
     """
     data = load_watchlists()
     for user in data["users"]:
@@ -54,7 +71,7 @@ def get_user_watchlist(user_id: str):
     return []
 
 
-def add_to_watchlist(user_id: str, movie_title: str):
+def add_to_watchlist(user_id: str, movie_title: str) -> Dict[str, str]:
     """
     Add a movie to a user's watchlist, creating the user entry if necessary.
     The entire read-modify-save sequence is protected by the watchlist lock
@@ -83,7 +100,7 @@ def add_to_watchlist(user_id: str, movie_title: str):
         return {"message": "New user added with first movie"}
 
 
-def remove_from_watchlist(user_id: str, movie_title: str):
+def remove_from_watchlist(user_id: str, movie_title: str) -> Dict[str, str]:
     """
     Remove a movie from a user's watchlist and report whether it was found.
     The entire read-modify-save sequence is protected by the watchlist lock

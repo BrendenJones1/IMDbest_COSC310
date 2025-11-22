@@ -7,6 +7,7 @@ from backend.schemas.user import UserCreate
 from backend.utils.security import create_access_token
 from datetime import datetime
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import sys
 
 # Ensure only the canonical import path exists
