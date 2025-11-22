@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional, TypedDict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 class User(BaseModel):
@@ -35,6 +35,11 @@ class UserPublic(BaseModel):
     reviews: list = Field(default_factory=list)
     watchlist: list = Field(default_factory=list)
     registered_at: Optional[datetime] = None
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda value: value.isoformat() if value else None
+        }
+    )
 
 class CurrentUser(TypedDict):
     username: str
