@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  backend:
+    build: .
+    container_name: cosc310-backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Toggle RELOAD=1 for dev auto-reload (requires volume mount)
+      # - RELOAD=1
+    # Uncomment for dev to mount local code and enable live reload:
+    # volumes:
+    #   - ./:/app
+    command: ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
