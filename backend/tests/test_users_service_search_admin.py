@@ -2,11 +2,11 @@ import pytest
 from backend.services.users_service import user_service as users_service
 
 
-# -----------------------------------------------------
-# Fixture: isolated in-memory users store
-# -----------------------------------------------------
 @pytest.fixture
 def clean_users(monkeypatch):
+    """
+    Provide an isolated in-memory users store by patching the UserService repository.
+    """
     store = []
 
     def fake_load_users():
@@ -21,10 +21,10 @@ def clean_users(monkeypatch):
     return store
 
 
-# -----------------------------------------------------
-# Helper
-# -----------------------------------------------------
 def make_user(id: str, username: str, email: str, role: str = "user"):
+    """
+    Build a minimal user record suitable for admin search tests.
+    """
     return {
         "id": id,
         "username": username,
@@ -37,11 +37,10 @@ def make_user(id: str, username: str, email: str, role: str = "user"):
     }
 
 
-# -----------------------------------------------------
-# TESTS
-# -----------------------------------------------------
-
 def test_search_users_admin_exact_username(clean_users):
+    """
+    Admin search should return a single match when username matches exactly.
+    """
     clean_users.extend([
         make_user("1", "Alice", "a@x.com"),
         make_user("2", "Bob", "b@x.com"),
@@ -53,6 +52,9 @@ def test_search_users_admin_exact_username(clean_users):
 
 
 def test_search_users_admin_case_insensitive(clean_users):
+    """
+    Admin search by username should be case-insensitive.
+    """
     clean_users.extend([
         make_user("1", "Alice", "a@x.com"),
         make_user("2", "Bob", "b@x.com"),
@@ -64,6 +66,9 @@ def test_search_users_admin_case_insensitive(clean_users):
 
 
 def test_search_users_admin_partial_email(clean_users):
+    """
+    Admin search should support partial email matches.
+    """
     clean_users.extend([
         make_user("1", "Alice", "test@domain.com"),
         make_user("2", "Bob", "other@domain.com"),
@@ -75,6 +80,9 @@ def test_search_users_admin_partial_email(clean_users):
 
 
 def test_search_users_admin_role_filter(clean_users):
+    """
+    Admin search should filter users by role when a role is provided.
+    """
     clean_users.extend([
         make_user("1", "Alice", "a@x.com", role="user"),
         make_user("2", "Bob", "b@x.com", role="admin"),
@@ -87,6 +95,9 @@ def test_search_users_admin_role_filter(clean_users):
 
 
 def test_search_users_admin_multiple_filters(clean_users):
+    """
+    Admin search should apply username and role filters together.
+    """
     clean_users.extend([
         make_user("1", "Alice Wonderland", "alice@x.com", role="admin"),
         make_user("2", "Alice Smith", "asmith@x.com", role="user"),
@@ -99,6 +110,9 @@ def test_search_users_admin_multiple_filters(clean_users):
 
 
 def test_search_users_admin_no_filters_returns_all(clean_users):
+    """
+    When no filters are provided, admin search should return all users.
+    """
     clean_users.extend([
         make_user("1", "A", "a@x.com"),
         make_user("2", "B", "b@x.com"),

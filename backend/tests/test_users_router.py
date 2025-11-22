@@ -5,17 +5,19 @@ from backend.services.users_service import user_service as users_service
 from backend.routers import users_router
 from backend.schemas.user import UserCreate
 from backend.utils.security import create_access_token
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 
 # Ensure only the canonical import path exists
 if "services.users_service" in sys.modules:
     del sys.modules["services.users_service"]
 
-# Patch load and save users to have empty list to work with, patches app
+
 @pytest.fixture
 def client(monkeypatch):
-    # --- Shared in-memory store ---
+    """
+    Build a fresh FastAPI app with a clean in-memory users store for each test.
+    """
     store = []
 
     def fake_load_users():
@@ -24,12 +26,10 @@ def client(monkeypatch):
     def fake_save_users(data):
         store[:] = data
 
-    # --- Patch the real service ---
     from backend.services.users_service import user_service as users_service
     monkeypatch.setattr(users_service.user_repo, "load_users", fake_load_users)
     monkeypatch.setattr(users_service.user_repo, "save_users", fake_save_users)
 
-    # --- Build a brand-new FastAPI app for this test ---
     from backend.routers import users_router
     app = FastAPI()
     app.include_router(users_router.router)
@@ -39,8 +39,7 @@ def client(monkeypatch):
 
 def test_register_response_has_registered_at(client):
     """
-    Ensure the /users/register endpoint includes a registered_at field
-    and that it is a valid ISO 8601 datetime string.
+    /users/register should include a registered_at field with a valid ISO 8601 datetime.
     """
     resp = client.post(
         "/users/register",
@@ -59,29 +58,28 @@ def test_register_response_has_registered_at(client):
     assert "registered_at" in user, "registered_at missing from API response"
     assert user["registered_at"] is not None
 
-    # Parse to ensure it's a valid datetime
     parsed = datetime.fromisoformat(user["registered_at"])
     assert isinstance(parsed, datetime)
 
 
 class DummyUser:
+    """
+    Simple stand-in for a user object with a mutable token_version.
+    """
 
-    def __init__(self, username: str, token_version: int=0):
+    def __init__(self, username: str, token_version: int = 0):
         self.username = username
         self.token_version = token_version
-        
+
 
 def test_logout_increments_token_version_and_saves(client, monkeypatch):
     """
-    - Mocking: override get_current_user and save_user.
-    - Verifies that logout increments token_version and calls save_user
-      with the updated user.
+    Logout should increment token_version and persist the updated user via save_user.
     """
     app = client.app
 
     fake_user = DummyUser("alice", token_version=3)
 
-    # Override dependency to return our fake current user
     app.dependency_overrides[users_router.get_current_user] = lambda: fake_user
 
     saved_payloads = []
@@ -94,20 +92,15 @@ def test_logout_increments_token_version_and_saves(client, monkeypatch):
     response = client.post("/users/logout")
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
-    # token_version should have been incremented
     assert fake_user.token_version == 4
     assert len(saved_payloads) == 1
     assert saved_payloads[0] is fake_user
     assert saved_payloads[0].token_version == 4
 
 
-
 def test_logout_propagates_save_failure(client, monkeypatch):
     """
-    Fault injection + exception handling:
-    We force save_user to raise and assert that the exception
-    bubbles out of the request when using TestClient with
-    raise_server_exceptions=True (the default).
+    If save_user raises, the exception should propagate out of the logout request.
     """
     app = client.app
 
@@ -122,42 +115,89 @@ def test_logout_propagates_save_failure(client, monkeypatch):
     with pytest.raises(RuntimeError, match="disk full"):
         client.post("/users/logout")
 
-    
+
 def test_router_import_path_sanity():
+    """
+    Ensure the users_router module is imported via the canonical backend path.
+    """
     import sys
+
     modules = [m for m in sys.modules if "users_router" in m]
     assert "backend.routers.users_router" in modules
 
 
 def test_register_user_success(client):
-    res = client.post("/users/register", json={
-        "username": "Alice",
-        "email": "alice@example.com",
-        "password": "pw"
-    })
+    """
+    Registering a new user should succeed and return an access token.
+    """
+    res = client.post(
+        "/users/register",
+        json={
+            "username": "Alice",
+            "email": "alice@example.com",
+            "password": "pw",
+        },
+    )
     assert res.status_code == 201
     body = res.json()
     assert "token" in body
 
+
 def test_register_duplicate_username(client):
-    client.post("/users/register", json={"username": "Bob", "email": "b@x.com", "password": "pw"})
-    res = client.post("/users/register", json={"username": "bob", "email": "other@x.com", "password": "pw"})
+    """
+    Registering with an existing username (case-insensitive) should return 409.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Bob", "email": "b@x.com", "password": "pw"},
+    )
+    res = client.post(
+        "/users/register",
+        json={"username": "bob", "email": "other@x.com", "password": "pw"},
+    )
     assert res.status_code == 409
     assert res.json()["detail"] == "Username taken."
 
+
 def test_login_user_success(client):
-    client.post("/users/register", json={"username": "Sam", "email": "s@x.com", "password": "pw"})
-    res = client.post("/users/login", params={"username": "sam", "password": "pw"})
+    """
+    Valid credentials should allow a user to obtain a token via /users/login.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Sam", "email": "s@x.com", "password": "pw"},
+    )
+    res = client.post(
+        "/users/login",
+        params={"username": "sam", "password": "pw"},
+    )
     assert res.status_code == 200
     assert "token" in res.json()
 
+
 def test_login_invalid_password(client):
-    client.post("/users/register", json={"username": "Jane", "email": "j@x.com", "password": "pw"})
-    res = client.post("/users/login", params={"username": "Jane", "password": "wrong"})
+    """
+    Incorrect password should yield a 401 Unauthorized response.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Jane", "email": "j@x.com", "password": "pw"},
+    )
+    res = client.post(
+        "/users/login",
+        params={"username": "Jane", "password": "wrong"},
+    )
     assert res.status_code == 401
 
+
 def test_list_users_returns_public_data(client):
-    client.post("/users/register", json={"username": "Tom", "email": "t@x.com", "password": "pw"})
+    """
+    Listing users should return public-safe data without password_hash.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Tom", "email": "t@x.com", "password": "pw"},
+    )
     res = client.get("/users/")
     assert res.status_code == 200
     data = res.json()
@@ -165,8 +205,15 @@ def test_list_users_returns_public_data(client):
     assert "password_hash" not in data[0]
     assert "username" in data[0]
 
+
 def test_get_user_by_id_success(client):
-    client.post("/users/register", json={"username": "Eve", "email": "e@x.com", "password": "pw"})
+    """
+    /users/{id} should return the requested user when the id exists.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Eve", "email": "e@x.com", "password": "pw"},
+    )
     users = client.get("/users/").json()
     user_id = users[0]["id"]
 
@@ -174,16 +221,32 @@ def test_get_user_by_id_success(client):
     assert res.status_code == 200
     assert res.json()["username"] == "Eve"
 
+
 def test_search_users_by_username(client):
-    client.post("/users/register", json={"username": "Alice", "email": "a@x.com", "password": "pw"})
-    client.post("/users/register", json={"username": "Bob", "email": "b@x.com", "password": "pw"})
+    """
+    /users/search should support case-insensitive username searches.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Alice", "email": "a@x.com", "password": "pw"},
+    )
+    client.post(
+        "/users/register",
+        json={"username": "Bob", "email": "b@x.com", "password": "pw"},
+    )
 
     res = client.get("/users/search", params={"username": "bob"})
     assert res.status_code == 200
 
 
 def test_update_user_username(client):
-    client.post("/users/register", json={"username": "Old", "email": "old@x.com", "password": "pw"})
+    """
+    Admin can update a user's username via /users/{user_id}.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Old", "email": "old@x.com", "password": "pw"},
+    )
     users = client.get("/users/").json()
     user_id = users[0]["id"]
 
@@ -192,45 +255,85 @@ def test_update_user_username(client):
     res = client.put(
         f"/users/{user_id}",
         json={"username": "NewName"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 200
     assert res.json()["username"] == "NewName"
 
+
 def test_get_user_not_found(client):
+    """
+    Requesting a non-existent user id should return 404.
+    """
     res = client.get("/users/unknown-id")
     assert res.status_code == 404
 
-# --- REGISTER: duplicate email ---
+
 def test_register_duplicate_email(client):
-    client.post("/users/register", json={"username": "A", "email": "a@x.com", "password": "pw"})
-    res = client.post("/users/register", json={"username": "B", "email": "a@x.com", "password": "pw"})
+    """
+    Duplicate email registration attempts should result in a 409 conflict.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "A", "email": "a@x.com", "password": "pw"},
+    )
+    res = client.post(
+        "/users/register",
+        json={"username": "B", "email": "a@x.com", "password": "pw"},
+    )
     assert res.status_code == 409
     assert "email" in res.text.lower()
 
-# --- LOGIN: nonexistent username (should map 404→401) ---
+
 def test_login_nonexistent_username(client):
-    res = client.post("/users/login", params={"username": "ghost", "password": "pw"})
+    """
+    Logging in with a non-existent username should return 401 with a generic message.
+    """
+    res = client.post(
+        "/users/login",
+        params={"username": "ghost", "password": "pw"},
+    )
     assert res.status_code == 401
     assert "incorrect" in res.text.lower()
 
-# --- SEARCH: by email and role ---
+
 def test_search_users_by_email_and_role(client):
-    client.post("/users/register", json={"username": "Mod", "email": "m@x.com", "password": "pw"})
-    client.post("/users/register", json={"username": "User", "email": "u@x.com", "password": "pw"})
-    res = client.get("/users/search", params={"email": "u@x.com", "role": "user"})
+    """
+    /users/search should allow filtering by both email and role.
+    """
+    client.post(
+        "/users/register",
+        json={"username": "Mod", "email": "m@x.com", "password": "pw"},
+    )
+    client.post(
+        "/users/register",
+        json={"username": "User", "email": "u@x.com", "password": "pw"},
+    )
+    res = client.get(
+        "/users/search",
+        params={"email": "u@x.com", "role": "user"},
+    )
     assert res.status_code == 200
     assert any("u@x.com" in u["email"] for u in res.json())
 
-# --- SEARCH: no results (empty list) ---
+
 def test_search_no_results(client):
+    """
+    Searching with no matches should return an empty list and 200 OK.
+    """
     res = client.get("/users/search", params={"username": "zzzzzz"})
     assert res.status_code == 200
-    assert res.json() == []   
+    assert res.json() == []
 
-# --- UPDATE: normal user updating self succeeds ---
+
 def test_update_self_success(client):
-    reg = client.post("/users/register", json={"username": "Self", "email": "self@x.com", "password": "pw"})
+    """
+    A normal user should be able to update their own profile data.
+    """
+    reg = client.post(
+        "/users/register",
+        json={"username": "Self", "email": "self@x.com", "password": "pw"},
+    )
     data = reg.json()
     token = data["token"]
     user = data["user"]
@@ -238,26 +341,36 @@ def test_update_self_success(client):
     res = client.put(
         f"/users/{user['id']}",
         json={"username": "Selfie"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 200
 
-# --- UPDATE: forbidden for non-owner non-admin ---
+
 def test_update_forbidden_for_non_owner(client):
-    client.post("/users/register", json={"username": "A", "email": "a@x.com", "password": "pw"})
-    reg = client.post("/users/register", json={"username": "B", "email": "b@x.com", "password": "pw"})
+    """
+    Non-admin users should be forbidden from updating other users' profiles.
+    """
+    client.post(
+        "/users/register", 
+        json={"username": "A", "email": "a@x.com", "password": "pw"},
+    )
+    reg = client.post(
+        "/users/register",
+        json={"username": "B", "email": "b@x.com", "password": "pw"},
+    )
     token = reg.json()["token"]
 
     res = client.put(
-        f"/users/0000",
+        "/users/0000",
         json={"username": "Hack"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 403
 
-# --- ROOT `/` route coverage (main.py) ---
+
 def test_root_exists(client):
+    """
+    Root route should exist or cleanly return 404 if not explicitly defined.
+    """
     res = client.get("/")
-    assert res.status_code in (200, 404)  # 404 acceptable if no explicit route
-
-
+    assert res.status_code in (200, 404)

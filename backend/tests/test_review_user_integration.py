@@ -4,16 +4,15 @@ from backend.services.review_service import ReviewService
 from backend.services.users_service import user_service as users_service
 from backend.schemas.review import ReviewOut
 
-# -------------------------------------------------------------------
-# Mock data helpers
-# -------------------------------------------------------------------
 
 @pytest.fixture
 def mock_repos(monkeypatch):
-    """Mock MovieRepository and ReviewRepository for all tests."""
+    """
+    Mock MovieRepository and ReviewRepository so reviews can be resolved without disk I/O.
+    """
     movies = [
         {"id": "thor-ragnarok", "title": "Thor Ragnarok"},
-        {"id": "inception", "title": "Inception"}
+        {"id": "inception", "title": "Inception"},
     ]
 
     review_data = {
@@ -26,7 +25,7 @@ def mock_repos(monkeypatch):
                     "upvotes": 5,
                     "downvotes": 0,
                     "created_at": "2025-01-01T00:00:00",
-                    "updated_at": "2025-01-01T00:00:00"
+                    "updated_at": "2025-01-01T00:00:00",
                 },
                 "u2": {
                     "user_id": "u2",
@@ -35,8 +34,8 @@ def mock_repos(monkeypatch):
                     "upvotes": 3,
                     "downvotes": 1,
                     "created_at": "2025-01-01T00:00:00",
-                    "updated_at": "2025-01-01T00:00:00"
-                }
+                    "updated_at": "2025-01-01T00:00:00",
+                },
             }
         },
         "inception": {
@@ -48,13 +47,12 @@ def mock_repos(monkeypatch):
                     "upvotes": 10,
                     "downvotes": 0,
                     "created_at": "2025-01-02T00:00:00",
-                    "updated_at": "2025-01-02T00:00:00"
+                    "updated_at": "2025-01-02T00:00:00",
                 }
             }
-        }
+        },
     }
 
-    # fake repos
     class FakeMovieRepo:
         @staticmethod
         def list_movies():
@@ -71,15 +69,13 @@ def mock_repos(monkeypatch):
     return {"movies": movies, "review_data": review_data}
 
 
-# -------------------------------------------------------------------
-# TEST 1: get_reviews_by_user_id
-# -------------------------------------------------------------------
-
 def test_get_reviews_by_user_id_returns_only_user_reviews(mock_repos):
+    """
+    get_reviews_by_user_id should return only the target user's reviews and their movie ids.
+    """
     service = ReviewService()
     reviews, movies = service.get_reviews_by_user_id("u1")
 
-    # verify structure and content
     assert isinstance(reviews, list)
     assert len(reviews) == 2  # 2 movies reviewed by u1
     assert len(movies) == 2
@@ -87,20 +83,20 @@ def test_get_reviews_by_user_id_returns_only_user_reviews(mock_repos):
     assert movies == ["thor-ragnarok", "inception"]
 
 
-
 def test_get_reviews_by_user_id_handles_no_reviews(mock_repos):
+    """
+    get_reviews_by_user_id should return empty lists when the user has no reviews.
+    """
     service = ReviewService()
     reviews, movies = service.get_reviews_by_user_id("nonexistent")
     assert reviews == []
     assert movies == []
 
 
-# -------------------------------------------------------------------
-# TEST 2: users_service.get_user_reviews
-# -------------------------------------------------------------------
-
 def test_users_service_get_user_reviews(monkeypatch, mock_repos):
-    """Ensure users_service delegates correctly to review_service."""
+    """
+    users_service.get_user_reviews should delegate to review_service and return its list.
+    """
     fake_reviews = [
         ReviewOut(
             user_id="u1",
@@ -116,7 +112,6 @@ def test_users_service_get_user_reviews(monkeypatch, mock_repos):
     def fake_get_reviews(user_id: str):
         return fake_reviews, []
 
-    # Patch the *instance* that UserService is holding
     monkeypatch.setattr(
         users_service.review_service,
         "get_reviews_by_user_id",
@@ -127,13 +122,10 @@ def test_users_service_get_user_reviews(monkeypatch, mock_repos):
     assert reviews == fake_reviews
 
 
-# -------------------------------------------------------------------
-# TEST 3: users_service.sync_user_reviews
-# -------------------------------------------------------------------
-
 def test_sync_user_reviews(monkeypatch):
-    """Ensure user record is updated with review dicts."""
-
+    """
+    sync_user_reviews should overwrite the user's stored reviews with current ReviewService data.
+    """
     fake_movies: list[str] = []
     fake_reviews = [
         ReviewOut(
@@ -161,16 +153,13 @@ def test_sync_user_reviews(monkeypatch):
         return users.copy()
 
     def fake_save_users(u):
-        saved["data"] = u
+        saved["data"] = u  # capture the saved snapshot for inspection
 
-    # Patch the review_service instance used by UserService
     monkeypatch.setattr(
         users_service.review_service,
         "get_reviews_by_user_id",
         fake_get_reviews,
     )
-
-    # Patch the repository used by UserService
     monkeypatch.setattr(users_service.user_repo, "load_users", fake_load_users)
     monkeypatch.setattr(users_service.user_repo, "save_users", fake_save_users)
 
@@ -179,3 +168,4 @@ def test_sync_user_reviews(monkeypatch):
     updated = saved["data"][0]
     assert updated["id"] == "u1"
     assert updated["reviews"] == [r.model_dump() for r in fake_reviews]
+

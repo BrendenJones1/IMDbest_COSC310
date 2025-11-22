@@ -6,6 +6,9 @@ from backend.repositories.movie_repo import MovieRepository
 
 
 class SortField(str, Enum):
+    """
+    Supported fields that search results can be sorted by.
+    """
     TITLE = "title"
     IMDB_RATING = "imdb_rating"
     USER_RATING = "user_rating"
@@ -13,11 +16,17 @@ class SortField(str, Enum):
 
 
 class SortOrder(str, Enum):
+    """
+    Allowed sort directions for search results.
+    """
     ASC = "asc"
     DESC = "desc"
 
 
 def _sort_key(movie: Dict[str, Any], sort_by: SortField):
+    """
+    Derive a normalized sort key for a movie based on the requested sort field.
+    """
     metadata = movie.get("metadata") or {}
     if sort_by == SortField.IMDB_RATING:
         return float(metadata.get("movieIMDbRating") or 0.0)
@@ -29,6 +38,9 @@ def _sort_key(movie: Dict[str, Any], sort_by: SortField):
 
 
 def _present_movie(movie: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Shape a raw movie record into the public search result representation.
+    """
     metadata = movie.get("metadata") or {}
     return {
         "id": movie["id"],
@@ -45,7 +57,10 @@ def search(
     sort_by: SortField = SortField.TITLE,
     sort_order: SortOrder = SortOrder.ASC,
 ) -> List[Dict[str, Any]]:
-    limit = max(1, min(limit, 50))
+    """
+    Search movies by query string and return a sorted, limited list of result summaries.
+    """
+    limit = max(1, min(limit, 50))  # enforce a safe, bounded page size
     results = MovieRepository.search_movies(q, include_metadata=True)
     reverse = sort_order == SortOrder.DESC
     sorted_results = sorted(results, key=lambda m: _sort_key(m, sort_by), reverse=reverse)

@@ -6,29 +6,32 @@ from backend.services.flags_service import FlagsService
 router = APIRouter(prefix="/admin", tags=["admin"])
 flags_service = FlagsService()
 
-# -------------------------------
-# LIST USERS
-# -------------------------------
+flags_service = FlagsService()
+
+
 @router.get("/users")
 def list_all_users(current_user: dict = Depends(decode_access_token)):
+    """
+    Return a list of all users for administrative review and management.
+    """
     require_admin(current_user)
     return user_service.list_users()
 
 
-# -------------------------------
-# DELETE A USER 
-# -------------------------------
 @router.delete("/users/{user_id}")
 def delete_user(user_id: str, current_user: dict = Depends(decode_access_token)):
+    """
+    Permanently delete a user account identified by user_id.
+    """
     require_admin(current_user)
     return user_service.delete_user(user_id)
 
 
-# -------------------------------
-# PROMOTE USER TO ADMIN 
-# -------------------------------
 @router.post("/users/{user_id}/promote")
 def promote_user(user_id: str, current_user: dict = Depends(decode_access_token)):
+    """
+    Elevate a user to admin role and return the updated user record.
+    """
     require_admin(current_user)
     try:
         updated_user = user_service.promote_user(user_id)
@@ -38,75 +41,91 @@ def promote_user(user_id: str, current_user: dict = Depends(decode_access_token)
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# -------------------------------
-# GET A USER'S REVIEWS
-# -------------------------------
+
 @router.get("/users/{user_id}/reviews")
 def get_user_reviews(user_id: str, current_user: dict = Depends(decode_access_token)):
+    """
+    Retrieve all reviews authored by a specific user.
+    """
     require_admin(current_user)
     return user_service.get_user_reviews(user_id)
 
-# -------------------------------
-# DELETE A USER'S REVIEW
-# -------------------------------
+
 @router.delete("/users/{user_id}/reviews/delete")
-def delete_user_review(user_id: str, movie_id: str, current_user: dict = Depends(decode_access_token)):
+def delete_user_review(
+    user_id: str,
+    movie_id: str,
+    current_user: dict = Depends(decode_access_token),
+):
+    """
+    Remove a specific review by a user for the given movie.
+    """
     require_admin(current_user)
     return user_service.remove_review_from_user(user_id, movie_id)
 
-# -------------------------------
-# SEARCH USERS
-# -------------------------------
+
 @router.get("/users/search")
 def search_users(
-        username: str | None = Query(None),
-        email: str | None = Query(None),
-        role: str | None = Query(None),
-        current_user: dict = Depends(decode_access_token)
-        ):
+    username: str | None = Query(None),
+    email: str | None = Query(None),
+    role: str | None = Query(None),
+    current_user: dict = Depends(decode_access_token),
+):
+    """
+    Search users by optional username, email, and role filters for admin use.
+    """
     require_admin(current_user)
     return user_service.search_users_admin(username=username, email=email, role=role)
-    
 
-# -------------------------------
-# GET ALL PENALTIES FOR A USER
-# -------------------------------
+
+@router.get("/flags")
+def get_all_flags(current_user: dict = Depends(decode_access_token)):
+    """
+    Retrieve all content flags for administrative review.
+    """
+    require_admin(current_user)
+    return flags_service.get_all_flags()
+
+
 @router.get("/users/{user_id}/penalties")
 def admin_get_penalties(user_id: str, current_user=Depends(decode_access_token)):
+    """
+    Retrieve all penalties associated with a specific user.
+    """
     require_admin(current_user)
     return user_service.get_user_penalties(user_id)
 
 
-# -------------------------------
-# ISSUE A PENALTY TO A USER
-# -------------------------------
 @router.post("/users/{user_id}/penalties")
 def admin_add_penalty(
     user_id: str,
     reason: str,
     flag_id: str | None = None,
-    current_user=Depends(decode_access_token)
+    current_user=Depends(decode_access_token),
 ):
+    """
+    Issue a new penalty to a user, optionally linking it to a flag.
+    """
     require_admin(current_user)
-    admin_id = current_user["sub"]  # the issuing admin
+    admin_id = current_user["sub"]  # id of the admin issuing this penalty
 
     new_penalty = user_service.add_penalty_to_user(
         user_id=user_id,
         reason=reason,
         admin_id=admin_id,
-        flag_id=flag_id
+        flag_id=flag_id,
     )
     return new_penalty
 
 
-# -------------------------------
-# DEACTIVATE A PENALTY
-# -------------------------------
 @router.put("/penalties/{penalty_id}/deactivate")
 def admin_deactivate_penalty(
     penalty_id: int,
-    current_user=Depends(decode_access_token)
+    current_user=Depends(decode_access_token),
 ):
+    """
+    Deactivate an existing penalty so it no longer counts against the user.
+    """
     require_admin(current_user)
     admin_id = current_user["sub"]
 
@@ -116,17 +135,20 @@ def admin_deactivate_penalty(
 
     return result
 
-# -------------------------------
-# FLAGS
-# -------------------------------
 @router.get("/flags")
 def get_all_flags(current_user: dict = Depends(decode_access_token)):
+    """
+    Retrieve all flags using the flags service attached to the user service.
+    """
     require_admin(current_user)
     return user_service.flags_service.get_all_flags()
 
 
 @router.get("/flags/pending")
 def get_pending_flags(current_user: dict = Depends(decode_access_token)):
+    """
+    Retrieve only flags that are still in a pending review state.
+    """
     require_admin(current_user)
     return user_service.flags_service.get_pending_flags()
 
@@ -137,6 +159,9 @@ def update_flag_status(
     new_status: str,
     current_user: dict = Depends(decode_access_token),
 ):
+    """
+    Update the status of a flag (approved, rejected, or pending) and return the result.
+    """
     require_admin(current_user)
 
     if new_status not in {"approved", "rejected", "pending"}:

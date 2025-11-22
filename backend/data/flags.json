@@ -276,5 +276,41 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-11-21T21:13:50.755988"
+    },
+    {
+        "flag_id": 32,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:32:53.333231"
+    },
+    {
+        "flag_id": 33,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:34:05.371398"
+    },
+    {
+        "flag_id": 34,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:38:42.940868"
+    },
+    {
+        "flag_id": 35,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-11-21T21:42:38.927567"
     }
 ]
