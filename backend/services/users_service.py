@@ -1,6 +1,5 @@
 import uuid
 from typing import List, Dict, Any
-from datetime import datetime
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -110,9 +109,9 @@ class UserService:
                 watchlist=[],
                 token_version=0,
                 registered_at=datetime.now(timezone.utc)
-            ).model_dump()
+            ).model_dump(mode="json")
 
-              users.append(new_user)
+            users.append(new_user)
 
         token = create_access_token(new_user["id"], new_user["role"], new_user["token_version"])
         return {"token": token, "user": UserPublic(**new_user)}

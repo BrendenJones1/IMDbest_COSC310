@@ -3,14 +3,13 @@ import os
 from datetime import datetime, timezone
 from threading import RLock  # NEW
 
-
 from backend.repositories.penalties_repo import PenaltiesRepository
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/penalties.json")
 
-
-# NEW: module-level lock to protect read/modify/write sequences and file I/O
+# module-level lock to protect read/modify/write sequences and file I/O
 _PENALTIES_LOCK = RLock()
+
 
 class PenaltiesService:
     def __init__(self, path: str | None = None, repo: PenaltiesRepository | None = None, now=None):
@@ -19,147 +18,104 @@ class PenaltiesService:
         self.repo = repo or PenaltiesRepository(self.file)
 
     def _ensure_repo(self):
+        """
+        Keep the repository aligned with the currently configured file path.
+        """
         if self.repo.file_path != self.file:
             self.repo = PenaltiesRepository(self.file)
 
     def _load(self):
+        """
+        Load penalties from the backing repository. Always returns a list.
+        (Callers should hold _PENALTIES_LOCK if they need RMW semantics.)
+        """
         self._ensure_repo()
         data = self.repo.load()
         return data if isinstance(data, list) else []
 
     def _save(self, data):
         """
-        Persist penalties using the configured saver.
+        Save penalties through the backing repository.
+        (Callers should hold _PENALTIES_LOCK if they need RMW semantics.)
         """
-        self._saver(data)
+        self._ensure_repo()
+        self.repo.save(data)
 
-    def _ensure_file_exists(self):
-        """
-        Ensure the backing JSON file exists before attempting any reads.
-        """
-        if not os.path.exists(self.file):
-            # ensure parent dir exists
-            os.makedirs(os.path.dirname(self.file), exist_ok=True)
-            with open(self.file, "w", encoding="utf-8") as f:
-                json.dump([], f)
+    # ---------------------------------
+    #   Public API (RMW locked)
+    # ---------------------------------
 
-    def _load_from_file(self):
-        """
-        Load penalties from the default JSON file on disk.
-        """
-        with _PENALTIES_LOCK:
-            with open(self.file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
-    def _save_to_file(self, data):
-        """
-        Save penalties to the default JSON file on disk.
-        Writes are atomic via a temp file + os.replace and protected by a lock.
-        """
-        tmp_path = self.file + ".tmp"
-        with _PENALTIES_LOCK:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4)
-            os.replace(tmp_path, self.file)
-
-    def _handle_all_the_things(self, action, payload=None, extra=None):
-        """
-        Internal dispatcher that applies a high-level penalty action to the current dataset.
-        The entire read-modify-write sequence is protected by the penalties lock.
-        """
-        payload = payload or {}
-
-        with _PENALTIES_LOCK:
-            data = self._load()
-            if not isinstance(data, list):
-                data = []  # defensively normalize corrupted or unexpected data
-
-            now_str = self._now().isoformat()
-
-            if action == "add_penalty":
-                next_id = (data[-1]["penalty_id"] + 1) if data else 1
-                new_penalty = {
-                    "penalty_id": next_id,
-                    "user_id": payload.get("user_id"),
-                    "issued_by": payload.get("issued_by"),
-                    "reason": payload.get("reason"),
-                    "source_flag_id": payload.get("source_flag_id"),
-                    "date_issued": now_str,
-                    "active": True,
-                    "date_revoked": None,
-                    "revoked_by": None,
-                }
-                data.append(new_penalty)
-                self._save(data)
-                return new_penalty
-
-            if action == "deactivate":
-                target = payload.get("penalty_id")
-                for p in data:
-                    if p.get("penalty_id") == target and p.get("active"):
-                        p["active"] = False
-                        p["date_revoked"] = now_str
-                        p["revoked_by"] = payload.get("revoked_by")
-                        self._save(data)
-                        return p
-                return None
-
-            if action == "get_all":
-                return data
-
-            if action == "get_for_user":
-                uid = payload.get("user_id")
-                return [p for p in data if p.get("user_id") == uid]
-
-            # For unknown actions, return the current dataset unchanged.
-            return data
-    def add_penalty(
-        self,
-        user_id: int,
-        reason: str,
-        issued_by: int,
-        source_flag_id: int | None = None,
-    ):
+    # NOTE: This uses integer IDs for user_id, inconsistent with some other schemas.
+    def add_penalty(self, user_id: int, reason: str, issued_by: int, source_flag_id: int | None = None):
         """
         Create and store a new penalty for a user, marking it as active.
+        Entire read-modify-write is protected by _PENALTIES_LOCK.
         """
-        return self._handle_all_the_things(
-            "add_penalty",
-            {
+        with _PENALTIES_LOCK:
+            data = self._load()
+            next_id = (data[-1]["penalty_id"] + 1) if data else 1
+            new_penalty = {
+                "penalty_id": next_id,
                 "user_id": user_id,
+                "issued_by": issued_by,           # record admin who issued it
                 "reason": reason,
-                "issued_by": issued_by,
-                "source_flag_id": source_flag_id,
-            },
-        )
+                "source_flag_id": source_flag_id, # optional link to a flag
+                "date_issued": self._now().isoformat(),
+                "active": True,
+                "date_revoked": None,
+                "revoked_by": None,
+            }
+            data.append(new_penalty)
+            self._save(data)
+            return new_penalty
 
     def get_all(self):
-        return self._load()
+        """
+        Retrieve all penalties as a single, lock-consistent snapshot.
+        """
+        with _PENALTIES_LOCK:
+            return self._load()
 
     def get_for_user(self, user_id: int):
-        return [p for p in self._load() if p.get("user_id") == user_id]
+        """
+        Retrieve all penalties associated with a specific user.
+        Protected so we see a consistent snapshot with respect to writers.
+        """
+        with _PENALTIES_LOCK:
+            data = self._load()
+            return [p for p in data if p.get("user_id") == user_id]
 
     def deactivate_penalty(self, penalty_id: int, revoked_by: int):
-        data = self._load()
-        for p in data:
-            if p.get("penalty_id") == penalty_id and p.get("active"):
-                p["active"] = False
-                p["date_revoked"] = self._now().isoformat()
-                p["revoked_by"] = revoked_by             # ← record admin who revoked
-                self._save(data)
-                return p
-        return None
+        """
+        Deactivate an active penalty and record who revoked it.
+        Entire read-modify-write is protected by _PENALTIES_LOCK.
+        """
+        with _PENALTIES_LOCK:
+            data = self._load()
+            for p in data:
+                if p.get("penalty_id") == penalty_id and p.get("active"):
+                    p["active"] = False
+                    p["date_revoked"] = self._now().isoformat()
+                    p["revoked_by"] = revoked_by  # record admin who revoked
+                    self._save(data)
+                    return p
+            return None
 
     def update_penalty(self, penalty_id: int, *, reason=None, issued_by=None, source_flag_id=None):
-        data = self._load()
-        for p in data:
-            if p.get("penalty_id") == penalty_id:
-                if reason is not None:
-                    p["reason"] = reason
-                if issued_by is not None:
-                    p["issued_by"] = issued_by
-                if source_flag_id is not None:
-                    p["source_flag_id"] = source_flag_id
-                self._save(data)
-                return p
-        return None
+        """
+        Update non-status fields of an existing penalty in a concurrency-safe way.
+        Entire read-modify-write is protected by _PENALTIES_LOCK.
+        """
+        with _PENALTIES_LOCK:
+            data = self._load()
+            for p in data:
+                if p.get("penalty_id") == penalty_id:
+                    if reason is not None:
+                        p["reason"] = reason
+                    if issued_by is not None:
+                        p["issued_by"] = issued_by
+                    if source_flag_id is not None:
+                        p["source_flag_id"] = source_flag_id
+                    self._save(data)
+                    return p
+            return None

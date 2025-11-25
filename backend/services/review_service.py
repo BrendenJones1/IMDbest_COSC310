@@ -180,10 +180,10 @@ class ReviewService:
                 metadata["userRatingTotal"] / metadata["userRatingCount"], 2
             )
 
-            del review_data["reviews"][user_id]
+        del review_data["reviews"][user_id]
 
-            ReviewRepository.save_review_data(movie_id, review_data)
-            MovieRepository.save_movie_metadata(movie_id, metadata)
+        ReviewRepository.save_review_data(movie_id, review_data)
+        MovieRepository.save_movie_metadata(movie_id, metadata)
 
     def get_reviews_by_user_id(self, user_id: str) -> Tuple[List[ReviewOut], List[str]]:
         """
