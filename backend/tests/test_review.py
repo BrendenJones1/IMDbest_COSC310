@@ -19,6 +19,14 @@ def movies_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(movie_repo_module, "MOVIES_DIR", base, raising=False)
     # Classes in movie_repo use the module-level MOVIES_DIR constant directly
     monkeypatch.setattr("repositories.movie_repo.MOVIES_DIR", base, raising=False)
+    # also patch the backend-qualified module in case it's imported elsewhere
+    monkeypatch.setattr("backend.repositories.movie_repo.MOVIES_DIR", base, raising=False)
+    # sanity: ensure both namespaces (if present) point to same path
+    try:
+        import repositories.movie_repo as legacy_movie_repo  # type: ignore
+        assert getattr(legacy_movie_repo, "MOVIES_DIR", None) == base
+    except Exception:
+        pass
     return base
 
 

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
-from repositories.movie_repo import MOVIES_DIR, MovieRepository
+from backend.repositories.movie_repo import MOVIES_DIR, MovieRepository
 
 
 class ReviewRepository:

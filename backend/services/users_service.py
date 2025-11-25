@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
-from schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
-from utils.security import hash_password, verify_password, create_access_token
+from backend.schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
+from backend.utils.security import hash_password, verify_password, create_access_token
 
 from backend.repositories.users_repo import UserRepository, user_repository
 from backend.schemas.review import ReviewOut
