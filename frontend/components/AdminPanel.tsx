@@ -37,7 +37,7 @@ import { Badge } from "./ui/badge";
 import { Movie } from "./MovieCard";
 
 interface Review {
-  id: number;
+  id: string;
   userId: string;
   userName: string;
   rating: number;
@@ -57,7 +57,7 @@ interface User {
 }
 
 interface UserWatchlist {
-  [userId: string]: number[];
+  [userId: string]: string[];
 }
 
 interface AdminPanelProps {
@@ -65,10 +65,10 @@ interface AdminPanelProps {
   users: User[];
   reviews: Review[];
   watchlists: UserWatchlist;
-  onDeleteMovie: (movieId: number) => void;
+  onDeleteMovie: (movieId: string) => void;
   onEditMovie: (movie: Movie) => void;
   onAddMovie: (movie: Omit<Movie, "id">) => void;
-  onDeleteReview: (movieId: number, userId: string, date: string) => void;
+  onDeleteReview: (movieId: string, userId: string, date: string) => void;
   onDeleteUser: (userId: string) => void;
   onFlagUser: (userId: string, reason: string) => void;
   onUnflagUser: (userId: string) => void;
@@ -109,10 +109,11 @@ export function AdminPanel({
   const usersWithPenalties = users.filter((u) => u.penalties > 0);
 
   const handleAddMovie = () => {
-    if (newMovie.title && newMovie.poster) {
+    if (newMovie.title) {
       const movieToAdd: Omit<Movie, "id"> = {
         ...newMovie,
-        genre: newMovie.genre.split(",").map((g) => g.trim()),
+        genre: newMovie.genre.split(",").map((g) => g.trim()).filter(Boolean),
+        poster: newMovie.poster,
       };
       onAddMovie(movieToAdd);
       setNewMovie({

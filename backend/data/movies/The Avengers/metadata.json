@@ -1,1 +1,29 @@
-{"title": "The Avengers", "movieIMDbRating": 8, "totalRatingCount": 1364943, "totalUserReviews": "2K", "totalCriticReviews": "755", "metaScore": "69", "movieGenres": ["Action", "Adventure", "Sci-Fi"], "directors": ["Joss Whedon"], "datePublished": "2012-05-11", "creators": ["Joss Whedon", "Zak Penn"], "mainStars": ["Robert Downey Jr.", "Chris Evans", "Scarlett Johansson"], "description": "Earth's mightiest heroes must come together and learn to fight as a team if they are going to stop the mischievous Loki and his alien army from enslaving humanity.", "duration": 143}
+{
+  "title": "The Avengers",
+  "movieIMDbRating": 8,
+  "totalRatingCount": 1364943,
+  "totalUserReviews": "2K",
+  "totalCriticReviews": "755",
+  "metaScore": "69",
+  "movieGenres": [
+    "Action",
+    "Adventure",
+    "Sci-Fi"
+  ],
+  "directors": [
+    "Joss Whedon"
+  ],
+  "datePublished": "2012-05-11",
+  "creators": [
+    "Joss Whedon",
+    "Zak Penn"
+  ],
+  "mainStars": [
+    "Robert Downey Jr.",
+    "Chris Evans",
+    "Scarlett Johansson"
+  ],
+  "description": "Earth's mightiest heroes must come together and learn to fight as a team if they are going to stop the mischievous Loki and his alien army from enslaving humanity.",
+  "duration": 143,
+  "poster": "https://m.media-amazon.com/images/M/MV5BOGIzNGQ0M2EtMTFmZC00ZWMyLWI4NWItYTE2MzVkOGJmZDE1XkEyXkFqcGc@._V1_.jpg"
+}

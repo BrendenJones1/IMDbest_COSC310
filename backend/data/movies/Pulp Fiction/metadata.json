@@ -1,1 +1,28 @@
-{"title": "Pulp Fiction", "movieIMDbRating": 8.9, "totalRatingCount": 1999600, "totalUserReviews": "3.4K", "totalCriticReviews": "297", "metaScore": "94", "movieGenres": ["Crime", "Drama"], "directors": ["Quentin Tarantino"], "datePublished": "1994-10-14", "creators": ["Quentin Tarantino", "Roger Avary"], "mainStars": ["John Travolta", "Uma Thurman", "Samuel L. Jackson"], "description": "The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.", "duration": 154}
+{
+  "title": "Pulp Fiction",
+  "movieIMDbRating": 8.9,
+  "totalRatingCount": 1999600,
+  "totalUserReviews": "3.4K",
+  "totalCriticReviews": "297",
+  "metaScore": "94",
+  "movieGenres": [
+    "Crime",
+    "Drama"
+  ],
+  "directors": [
+    "Quentin Tarantino"
+  ],
+  "datePublished": "1994-10-14",
+  "creators": [
+    "Quentin Tarantino",
+    "Roger Avary"
+  ],
+  "mainStars": [
+    "John Travolta",
+    "Uma Thurman",
+    "Samuel L. Jackson"
+  ],
+  "description": "The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+  "duration": 154,
+  "poster": "https://m.media-amazon.com/images/M/MV5BYTViYTE3ZGQtNDBlMC00ZTAyLTkyODMtZGRiZDg0MjA2YThkXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"
+}

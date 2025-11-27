@@ -16,7 +16,7 @@ interface User {
 }
 
 interface Review {
-  id: number;
+  id: string;
   userId: string;
   userName: string;
   rating: number;
@@ -25,7 +25,7 @@ interface Review {
 }
 
 interface UserWatchlist {
-  [userId: string]: number[];
+  [userId: string]: string[];
 }
 
 interface AdminDashboardProps {

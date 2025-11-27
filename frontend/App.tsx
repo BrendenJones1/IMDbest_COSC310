@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Sidebar } from "./components/Sidebar";
@@ -7,7 +7,6 @@ import { MovieCarousel } from "./components/MovieCarousel";
 import { MovieDialog } from "./components/MovieDialog";
 import { AdminPanel } from "./components/AdminPanel";
 import { ApiDocs } from "./components/ApiDocs";
-import { UserManagement } from "./components/UserManagement";
 import { UserSwitcher } from "./components/UserSwitcher";
 import { UserDashboard } from "./components/UserDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
@@ -30,7 +29,7 @@ import {
 // Mock movie data
 const initialMovies: Movie[] = [
   {
-    id: 1,
+    id: "the-cosmic-journey",
     title: "The Cosmic Journey",
     year: 2024,
     rating: 8.5,
@@ -40,7 +39,7 @@ const initialMovies: Movie[] = [
     ageRating: "PG-13",
   },
   {
-    id: 2,
+    id: "urban-legends",
     title: "Urban Legends",
     year: 2023,
     rating: 7.8,
@@ -50,7 +49,7 @@ const initialMovies: Movie[] = [
     ageRating: "R",
   },
   {
-    id: 3,
+    id: "love-in-paris",
     title: "Love in Paris",
     year: 2024,
     rating: 7.2,
@@ -60,7 +59,7 @@ const initialMovies: Movie[] = [
     ageRating: "PG-13",
   },
   {
-    id: 4,
+    id: "cinema-dreams",
     title: "Cinema Dreams",
     year: 2023,
     rating: 8.9,
@@ -70,7 +69,7 @@ const initialMovies: Movie[] = [
     ageRating: "PG",
   },
   {
-    id: 5,
+    id: "dark-horizons",
     title: "Dark Horizons",
     year: 2024,
     rating: 8.1,
@@ -80,7 +79,7 @@ const initialMovies: Movie[] = [
     ageRating: "R",
   },
   {
-    id: 6,
+    id: "the-last-stand",
     title: "The Last Stand",
     year: 2023,
     rating: 7.5,
@@ -90,7 +89,7 @@ const initialMovies: Movie[] = [
     ageRating: "PG-13",
   },
   {
-    id: 7,
+    id: "summers-end",
     title: "Summer's End",
     year: 2024,
     rating: 6.9,
@@ -100,7 +99,7 @@ const initialMovies: Movie[] = [
     ageRating: "PG",
   },
   {
-    id: 8,
+    id: "reel-magic",
     title: "Reel Magic",
     year: 2023,
     rating: 7.7,
@@ -128,6 +127,45 @@ const carouselSlides = [
     title: "Cinema Dreams",
   },
 ];
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "movie";
+
+const buildPosterUrl = (title: string) =>
+  `https://source.unsplash.com/featured/600x900/?movie,${encodeURIComponent(title || "film")}`;
+
+const normalizeYear = (value?: string) => {
+  if (!value) return new Date().getFullYear();
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    const numericYear = Number(value.slice(0, 4));
+    return Number.isNaN(numericYear) ? new Date().getFullYear() : numericYear;
+  }
+  return new Date(timestamp).getFullYear();
+};
+
+const mapBackendMovie = (summary: any, metadata: Record<string, any>): Movie => {
+  const title = metadata?.title || summary?.title || "Untitled";
+  const genre = Array.isArray(metadata?.movieGenres) && metadata.movieGenres.length > 0
+    ? metadata.movieGenres
+    : ["Uncategorized"];
+
+  return {
+    id: summary?.id || slugify(title),
+    title,
+    year: normalizeYear(metadata?.datePublished || summary?.releaseDate),
+    rating: Number(summary?.userRatingAverage ?? summary?.imdbRating ?? metadata?.movieIMDbRating ?? 0) || 0,
+    poster: metadata?.poster || buildPosterUrl(title),
+    genre,
+    description: metadata?.description || "Description not available.",
+    ageRating: metadata?.ageRating || "NR",
+  };
+};
 
 interface User {
   id: string;
@@ -172,11 +210,11 @@ const mockUsers: User[] = [
 ];
 
 interface UserWatchlist {
-  [userId: string]: number[];
+  [userId: string]: string[];
 }
 
 interface Review {
-  id: number;
+  id: string;
   userId: string;
   userName: string;
   rating: number;
@@ -195,15 +233,17 @@ export default function App() {
   const [sortBy, setSortBy] = useState<"title" | "rating" | "year">("title");
   const [filterGenre, setFilterGenre] = useState<string>("all");
   const [movies, setMovies] = useState<Movie[]>(initialMovies);
+  const [isLoadingMovies, setIsLoadingMovies] = useState(false);
+  const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
-    alice: [1, 4],
-    bob: [2, 3],
-    charlie: [1, 2, 5],
+    alice: ["the-cosmic-journey", "cinema-dreams"],
+    bob: ["urban-legends", "love-in-paris"],
+    charlie: ["the-cosmic-journey", "urban-legends", "dark-horizons"],
   });
   const [reviews, setReviews] = useState<Review[]>([
     {
-      id: 1,
+      id: "the-cosmic-journey",
       userId: "alice",
       userName: "Alice",
       rating: 9,
@@ -211,7 +251,7 @@ export default function App() {
       date: "2024-10-20",
     },
     {
-      id: 4,
+      id: "cinema-dreams",
       userId: "bob",
       userName: "Bob",
       rating: 10,
@@ -220,11 +260,67 @@ export default function App() {
     },
   ]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchMovies = async () => {
+      setIsLoadingMovies(true);
+      setMovieError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/search?q=&limit=50`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Backend responded with ${response.status}`);
+        }
+        const payload = await response.json();
+        const summaries = Array.isArray(payload?.items) ? payload.items : [];
+
+        if (summaries.length === 0) {
+          setMovies(initialMovies);
+          return;
+        }
+
+        const metadata = await Promise.all(
+          summaries.map(async (summary: any) => {
+            try {
+              const metaRes = await fetch(`${API_BASE_URL}/movies/${summary.id}/metadata`, {
+                signal: controller.signal,
+              });
+              if (!metaRes.ok) {
+                return {};
+              }
+              return await metaRes.json();
+            } catch {
+              return {};
+            }
+          })
+        );
+
+        const normalized = summaries.map((summary: any, index: number) =>
+          mapBackendMovie(summary, metadata[index] || {})
+        );
+        setMovies(normalized);
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.error("Failed to fetch movies", error);
+        setMovieError("Unable to load movies from the backend. Showing local data.");
+        setMovies(initialMovies);
+      } finally {
+        setIsLoadingMovies(false);
+      }
+    };
+
+    fetchMovies();
+
+    return () => controller.abort();
+  }, []);
+
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
 
-  const handleWatchlistToggle = (movieId: number) => {
+  const handleWatchlistToggle = (movieId: string) => {
     setWatchlists((prev) => {
       const userList = prev[currentUserId] || [];
       const isInList = userList.includes(movieId);
@@ -238,7 +334,7 @@ export default function App() {
     });
   };
 
-  const handleAddReview = (movieId: number, rating: number, comment: string) => {
+  const handleAddReview = (movieId: string, rating: number, comment: string) => {
     const newReview: Review = {
       id: movieId,
       userId: currentUserId,
@@ -255,13 +351,13 @@ export default function App() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteMovie = (movieId: number) => {
+  const handleDeleteMovie = (movieId: string) => {
     setMovies((prev) => prev.filter((m) => m.id !== movieId));
     setReviews((prev) => prev.filter((r) => r.id !== movieId));
     setWatchlists((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((user) => {
-        updated[user] = updated[user].filter((id) => id !== movieId);
+        updated[user] = (updated[user] || []).filter((id) => id !== movieId);
       });
       return updated;
     });
@@ -272,15 +368,21 @@ export default function App() {
   };
 
   const handleAddMovie = (newMovie: Omit<Movie, "id">) => {
-    const maxId = Math.max(...movies.map((m) => m.id), 0);
+    const baseId = slugify(newMovie.title || "movie");
+    let uniqueId = baseId;
+    let counter = 1;
+    while (movies.some((m) => m.id === uniqueId)) {
+      uniqueId = `${baseId}-${counter++}`;
+    }
     const movieWithId: Movie = {
       ...newMovie,
-      id: maxId + 1,
+      id: uniqueId,
+      poster: newMovie.poster || buildPosterUrl(newMovie.title),
     };
     setMovies((prev) => [...prev, movieWithId]);
   };
 
-  const handleDeleteReview = (movieId: number, userId: string, date: string) => {
+  const handleDeleteReview = (movieId: string, userId: string, date: string) => {
     setReviews((prev) =>
       prev.filter((r) => !(r.id === movieId && r.userId === userId && r.date === date))
     );
@@ -502,6 +604,16 @@ export default function App() {
                   </DropdownMenu>
                 </div>
               </div>
+
+              {movieError && (
+                <div className="mb-6 rounded border border-yellow-800 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+                  {movieError}
+                </div>
+              )}
+
+              {isLoadingMovies && !movieError && (
+                <div className="mb-6 text-sm text-neutral-400">Loading movies from backend...</div>
+              )}
 
               {activeSection === "home" && (
                 <>

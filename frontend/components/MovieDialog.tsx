@@ -1,4 +1,4 @@
-import { Star, Calendar, Clock, Plus, Check } from "lucide-react";
+import { Star, Calendar, Plus, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,20 +11,10 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { useState } from "react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-
-interface Movie {
-  id: number;
-  title: string;
-  year: number;
-  rating: number;
-  poster: string;
-  genre: string[];
-  description: string;
-  ageRating: string;
-}
+import type { Movie } from "./MovieCard";
 
 interface Review {
-  id: number;
+  id: string;
   userId: string;
   userName: string;
   rating: number;
@@ -37,9 +27,9 @@ interface MovieDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isInWatchlist: boolean;
-  onWatchlistToggle: (movieId: number) => void;
+  onWatchlistToggle: (movieId: string) => void;
   reviews: Review[];
-  onAddReview: (movieId: number, rating: number, comment: string) => void;
+  onAddReview: (movieId: string, rating: number, comment: string) => void;
   currentUser: string;
 }
 

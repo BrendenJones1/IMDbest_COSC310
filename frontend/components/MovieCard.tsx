@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 export interface Movie {
-  id: number;
+  id: string;
   title: string;
   year: number;
   rating: number;
@@ -17,7 +17,7 @@ export interface Movie {
 interface MovieCardProps {
   movie: Movie;
   isInWatchlist: boolean;
-  onWatchlistToggle: (movieId: number) => void;
+  onWatchlistToggle: (movieId: string) => void;
   onMovieClick: (movie: Movie) => void;
 }
 
@@ -40,10 +40,10 @@ export function MovieCard({ movie, isInWatchlist, onWatchlistToggle, onMovieClic
             size="icon"
             variant={isInWatchlist ? "default" : "secondary"}
             className="h-8 w-8 rounded-full"
-            onClick={(e) => {
-              e.stopPropagation();
-              onWatchlistToggle(movie.id);
-            }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onWatchlistToggle(movie.id);
+              }}
           >
             {isInWatchlist ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           </Button>
