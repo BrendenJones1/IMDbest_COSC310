@@ -310,7 +310,25 @@
         "flagger_id": 12,
         "flagged_user_id": 8,
         "reason": "abusive",
-        "status": "approved",
+        "status": "string",
         "date_created": "2025-11-21T21:42:38.927567"
+    },
+    {
+        "flag_id": 36,
+        "review_id": 1,
+        "flagger_id": 2,
+        "flagged_user_id": 1,
+        "reason": "vulgar",
+        "status": "pending",
+        "date_created": "2025-11-22T22:37:46.371563"
+    },
+    {
+        "flag_id": 37,
+        "review_id": 1,
+        "flagger_id": 2,
+        "flagged_user_id": 1,
+        "reason": "bad",
+        "status": "good",
+        "date_created": "2025-11-25T10:31:52.446799"
     }
 ]
