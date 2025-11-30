@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from fastapi.encoders import jsonable_encoder
 
 from backend.schemas.user import UserCreate, UserUpdate, UserPublic, User, CurrentUser
 from backend.utils.security import hash_password, verify_password, create_access_token
@@ -82,7 +83,7 @@ class UserService:
         is_first_user = len(users) == 0
         role = "admin" if is_first_user else "user"
 
-        new_user = User(
+        new_user_model = User(
             id=new_id,
             username=payload.username.strip(),
             email=payload.email.strip(),
@@ -93,7 +94,8 @@ class UserService:
             watchlist=[],
             token_version=0,
             registered_at=datetime.now(timezone.utc)
-        ).model_dump()
+        )
+        new_user = jsonable_encoder(new_user_model)
 
         users.append(new_user)
         self.user_repo.save_users(users)
@@ -197,7 +199,7 @@ class UserService:
                     )
 
                 updated = stored.model_copy(update=update_data)
-                users[idx] = updated.model_dump()
+                users[idx] = jsonable_encoder(updated)
                 self.user_repo.save_users(users)
                 return UserPublic(**updated.model_dump())
 

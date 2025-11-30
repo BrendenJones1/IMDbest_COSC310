@@ -11,6 +11,7 @@ import { UserSwitcher } from "./components/UserSwitcher";
 import { UserDashboard } from "./components/UserDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { RegisterScreen } from "./components/RegisterScreen";
+import { LoginScreen } from "./components/LoginScreen";
 import { Button } from "./components/ui/button";
 import {
   DropdownMenu,
@@ -128,6 +129,7 @@ const carouselSlides = [
   },
 ];
 
+const AUTH_STORAGE_KEY = "imdbest.auth";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const slugify = (value: string) =>
@@ -178,6 +180,15 @@ interface User {
   isAdmin: boolean;
 }
 
+interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  registered_at?: string | null;
+  reviews?: string[];
+  watchlist?: string[];
+}
+
 const mockUsers: User[] = [
   {
     id: "alice",
@@ -223,9 +234,13 @@ interface Review {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [showRegister, setShowRegister] = useState(false); // Set to false to show main app
-  const [currentUser, setCurrentUser] = useState("Alice");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState("");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
@@ -260,6 +275,166 @@ export default function App() {
     },
   ]);
 
+  const decodeTokenRole = (token: string | null) => {
+    if (!token) return "user";
+    try {
+      const payload = token.split(".")[1];
+      const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
+      const decoded = JSON.parse(atob(padded.replace(/-/g, "+").replace(/_/g, "/")));
+      return decoded?.role || "user";
+    } catch {
+      return "user";
+    }
+  };
+
+  const normalizeJoinDate = (value?: string | null) => {
+    if (!value) {
+      return new Date().toISOString().split("T")[0];
+    }
+    return value.split("T")[0];
+  };
+
+  const ensureUserRecord = (user: AuthUser, tokenRole: string) => {
+    const normalized: User = {
+      id: user.id,
+      name: user.username,
+      email: user.email,
+      joinDate: normalizeJoinDate(user.registered_at),
+      isFlagged: false,
+      penalties: 0,
+      isAdmin: tokenRole === "admin",
+    };
+
+    setUsers((prev) => {
+      const existingIndex = prev.findIndex((u) => u.id === user.id || u.name === user.username);
+      if (existingIndex === -1) {
+        return [...prev, normalized];
+      }
+      const next = [...prev];
+      next[existingIndex] = { ...next[existingIndex], ...normalized };
+      return next;
+    });
+
+    setWatchlists((prev) => {
+      if (prev[user.id]) {
+        return prev;
+      }
+      return { ...prev, [user.id]: [] };
+    });
+  };
+
+  const applySession = (token: string, user: AuthUser) => {
+    const role = decodeTokenRole(token);
+    setAuthToken(token);
+    setAuthUser(user);
+    setIsAuthenticated(true);
+    setCurrentUser(user.username);
+    ensureUserRecord(user, role);
+  };
+
+  const persistSession = (token: string, user: AuthUser) => {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user }));
+    } catch {
+      // ignore storage failures
+    }
+  };
+
+  const clearSession = () => {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch {
+      // ignore storage failures
+    }
+  };
+
+  const handleAuthSuccess = (token: string, user: AuthUser) => {
+    applySession(token, user);
+    persistSession(token, user);
+    setAuthMode("login");
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setAuthToken(null);
+    setAuthUser(null);
+    setCurrentUser("");
+    setAuthMode("login");
+    setAuthError(null);
+    setActiveSection("home");
+    clearSession();
+  };
+
+  const authorizedFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers || {});
+    if (authToken) {
+      headers.set("Authorization", `Bearer ${authToken}`);
+    }
+    return fetch(input, { ...init, headers });
+  };
+
+  const handleRegister = async (payload: { username: string; email: string; password: string }) => {
+    setAuthError(null);
+    setIsAuthLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.detail || "Registration failed. Please try again.");
+      }
+      handleAuthSuccess(data.token, data.user);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Registration failed. Please try again.";
+      setAuthError(message);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async (payload: { username: string; password: string }) => {
+    setAuthError(null);
+    setIsAuthLoading(true);
+    try {
+      const params = new URLSearchParams({
+        username: payload.username,
+        password: payload.password,
+      });
+      const res = await fetch(`${API_BASE_URL}/users/login?${params.toString()}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.detail || "Login failed. Please check your credentials.");
+      }
+      handleAuthSuccess(data.token, data.user);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Login failed. Please try again.";
+      setAuthError(message);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as { token?: string; user?: AuthUser };
+        if (parsed?.token && parsed?.user) {
+          applySession(parsed.token, parsed.user);
+          return;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+    setIsAuthenticated(false);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -267,7 +442,7 @@ export default function App() {
       setIsLoadingMovies(true);
       setMovieError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/search?q=&limit=50`, {
+        const response = await authorizedFetch(`${API_BASE_URL}/search?q=&limit=50`, {
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -284,7 +459,7 @@ export default function App() {
         const metadata = await Promise.all(
           summaries.map(async (summary: any) => {
             try {
-              const metaRes = await fetch(`${API_BASE_URL}/movies/${summary.id}/metadata`, {
+              const metaRes = await authorizedFetch(`${API_BASE_URL}/movies/${summary.id}/metadata`, {
                 signal: controller.signal,
               });
               if (!metaRes.ok) {
@@ -314,11 +489,29 @@ export default function App() {
     fetchMovies();
 
     return () => controller.abort();
-  }, []);
+  }, [authToken]);
 
-  const currentUserObj = users.find((u) => u.name === currentUser);
+  const matchedUser = users.find((u) => u.name === currentUser);
+  const fallbackUser =
+    !matchedUser && authUser
+      ? {
+          id: authUser.id,
+          name: authUser.username,
+          email: authUser.email,
+          joinDate: normalizeJoinDate(authUser.registered_at),
+          isFlagged: false,
+          penalties: 0,
+          isAdmin: decodeTokenRole(authToken) === "admin",
+        }
+      : undefined;
+  const currentUserObj = matchedUser || fallbackUser;
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+  useEffect(() => {
+    if (!isAdmin && activeSection === "admin") {
+      setActiveSection("home");
+    }
+  }, [isAdmin, activeSection]);
 
   const handleWatchlistToggle = (movieId: string) => {
     setWatchlists((prev) => {
@@ -478,31 +671,30 @@ export default function App() {
       ? "My Watchlist"
       : activeSection.toUpperCase();
 
-  // Show register screen if not authenticated
-  if (!isAuthenticated && showRegister) {
+  if (!isAuthenticated) {
+    if (authMode === "register") {
+      return (
+        <RegisterScreen
+          onRegister={handleRegister}
+          onSwitchToLogin={() => {
+            setAuthMode("login");
+            setAuthError(null);
+          }}
+          errorMessage={authError}
+          isSubmitting={isAuthLoading}
+        />
+      );
+    }
+
     return (
-      <RegisterScreen
-        onRegister={(data) => {
-          // Demo: Add new user and authenticate
-          const newUser = {
-            id: data.name.toLowerCase(),
-            name: data.name,
-            email: data.email,
-            joinDate: new Date().toISOString().split("T")[0],
-            isFlagged: false,
-            penalties: 0,
-            isAdmin: data.isAdmin,
-          };
-          setUsers([...users, newUser]);
-          setCurrentUser(data.name);
-          setIsAuthenticated(true);
-          setShowRegister(false);
+      <LoginScreen
+        onLogin={handleLogin}
+        onSwitchToRegister={() => {
+          setAuthMode("register");
+          setAuthError(null);
         }}
-        onSwitchToLogin={() => {
-          // For demo, just authenticate as Alice
-          setIsAuthenticated(true);
-          setShowRegister(false);
-        }}
+        errorMessage={authError}
+        isSubmitting={isAuthLoading}
       />
     );
   }
@@ -512,6 +704,7 @@ export default function App() {
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 overflow-auto">
@@ -551,14 +744,8 @@ export default function App() {
                   <div className="ml-4">
                     <UserSwitcher
                       currentUser={currentUser}
-                      currentUserEmail={currentUserObj?.email}
-                      onSignOut={() => {
-                        // Sign out and show register screen
-                        setIsAuthenticated(false);
-                        setShowRegister(true);
-                        setCurrentUser("Alice");
-                        setActiveSection("home");
-                      }}
+                      currentUserEmail={currentUserObj?.email || authUser?.email}
+                      onSignOut={handleLogout}
                     />
                   </div>
                 </div>

@@ -8,5 +8,17 @@
     "penalties": [],
     "reviews": [],
     "watchlist": []
+  },
+  {
+    "id": "dc69c8eb-aef6-4f1b-97a0-17d2c5d9adfa",
+    "username": "Dan",
+    "email": "danrukundo66@gmail.com",
+    "password_hash": "$2b$12$CuUXAM77SpWFVchSBXM4Zul41blYbO0MKTQWW/zx1htmRVVwUyioO",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-11-30T01:42:16.700851Z"
   }
 ]
