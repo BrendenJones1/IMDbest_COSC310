@@ -29,5 +29,6 @@
   "userRatingCount": 2,
   "userRatingTotal": 6.0,
   "userRatingAverage": 3.0,
-  "movie_id": "the-dark-knight"
+  "movie_id": "the-dark-knight",
+  "poster": "https://m.media-amazon.com/images/M/MV5BMTMxNTMwODM0NF5BMl5BanBnXkFtZTcwODAyMTk2Mw@@._V1_.jpg"
 }

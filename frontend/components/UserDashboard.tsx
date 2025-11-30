@@ -1,6 +1,7 @@
 import { Heart, Star, TrendingUp, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import type { Movie } from "./MovieCard";
 
 interface User {
   id: string;
@@ -13,19 +14,8 @@ interface User {
   isAdmin: boolean;
 }
 
-interface Movie {
-  id: number;
-  title: string;
-  year: number;
-  rating: number;
-  poster: string;
-  genre: string[];
-  description: string;
-  ageRating: string;
-}
-
 interface Review {
-  id: number;
+  id: string;
   userId: string;
   userName: string;
   rating: number;
@@ -36,7 +26,7 @@ interface Review {
 interface UserDashboardProps {
   currentUser: User;
   movies: Movie[];
-  watchlist: number[];
+  watchlist: string[];
   reviews: Review[];
 }
 
