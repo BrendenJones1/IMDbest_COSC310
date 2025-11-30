@@ -9,9 +9,10 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 interface RegisterScreenProps {
   onRegister?: (data: { name: string; email: string; password: string; isAdmin: boolean }) => void;
   onSwitchToLogin?: () => void;
+  errorMessage?: string | null;
 }
 
-export function RegisterScreen({ onRegister, onSwitchToLogin }: RegisterScreenProps) {
+export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage }: RegisterScreenProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,6 +88,12 @@ export function RegisterScreen({ onRegister, onSwitchToLogin }: RegisterScreenPr
               Join IMDB to start reviewing your favorite movies
             </p>
           </div>
+
+          {errorMessage && (
+            <div className="mb-4 rounded border border-red-900 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {errorMessage}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Role Selection */}
