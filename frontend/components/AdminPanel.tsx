@@ -145,10 +145,10 @@ export function AdminPanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       <div>
         <h1 className="text-3xl mb-2">Admin Panel</h1>
-        <p className="text-neutral-400">Comprehensive management for movies, users, reviews, flags, and penalties</p>
+        <p className="text-neutral-300">Comprehensive management for movies, users, reviews, flags, and penalties</p>
       </div>
 
       <Tabs defaultValue="movies" className="w-full">
@@ -173,12 +173,12 @@ export function AdminPanel({
 
         {/* Movies Management */}
         <TabsContent value="movies" className="space-y-4">
-          <Card className="bg-neutral-900 border-neutral-800">
+          <Card className="bg-neutral-900 border-neutral-800 text-white">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Movie Management</CardTitle>
-                  <p className="text-sm text-neutral-400 mt-1">{movies.length} total movies</p>
+                  <p className="text-sm text-neutral-300 mt-1">{movies.length} total movies</p>
                 </div>
                 <Dialog open={isAddMovieOpen} onOpenChange={setIsAddMovieOpen}>
                   <DialogTrigger asChild>
@@ -190,7 +190,7 @@ export function AdminPanel({
                   <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
                     <DialogHeader>
                       <DialogTitle>Add New Movie</DialogTitle>
-                      <DialogDescription className="text-neutral-400">
+                      <DialogDescription className="text-neutral-300">
                         Add a new movie to the database
                       </DialogDescription>
                     </DialogHeader>
@@ -280,22 +280,22 @@ export function AdminPanel({
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="text-white">
                 <TableHeader>
-                  <TableRow className="border-neutral-800">
-                    <TableHead className="text-neutral-400">Title</TableHead>
-                    <TableHead className="text-neutral-400">Year</TableHead>
-                    <TableHead className="text-neutral-400">Rating</TableHead>
-                    <TableHead className="text-neutral-400">Genre</TableHead>
-                    <TableHead className="text-neutral-400">Reviews</TableHead>
-                    <TableHead className="text-neutral-400 text-right">Actions</TableHead>
+                  <TableRow className="border-neutral-800 text-neutral-200">
+                    <TableHead className="text-neutral-200">Title</TableHead>
+                    <TableHead className="text-neutral-200">Year</TableHead>
+                    <TableHead className="text-neutral-200">Rating</TableHead>
+                    <TableHead className="text-neutral-200">Genre</TableHead>
+                    <TableHead className="text-neutral-200">Reviews</TableHead>
+                    <TableHead className="text-neutral-200 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {movies.map((movie) => {
                     const reviewCount = reviews.filter((r) => r.id === movie.id).length;
                     return (
-                      <TableRow key={movie.id} className="border-neutral-800">
+                      <TableRow key={movie.id} className="border-neutral-800 text-white/90">
                         <TableCell>{movie.title}</TableCell>
                         <TableCell>{movie.year}</TableCell>
                         <TableCell>
@@ -336,7 +336,7 @@ export function AdminPanel({
                             <AlertDialogContent className="bg-neutral-900 border-neutral-800 text-white">
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Movie</AlertDialogTitle>
-                                <AlertDialogDescription className="text-neutral-400">
+                                <AlertDialogDescription className="text-neutral-300">
                                   Are you sure you want to delete "{movie.title}"? This will permanently remove the movie and all its associated reviews. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -365,31 +365,31 @@ export function AdminPanel({
 
         {/* Users Management */}
         <TabsContent value="users" className="space-y-4">
-          <Card className="bg-neutral-900 border-neutral-800">
+          <Card className="bg-neutral-900 border-neutral-800 text-white">
             <CardHeader>
               <div>
                 <CardTitle>User Management</CardTitle>
-                <p className="text-sm text-neutral-400 mt-1">
+                <p className="text-sm text-neutral-300 mt-1">
                   {users.length} total users • {flaggedUsers.length} flagged • {usersWithPenalties.length} with penalties
                 </p>
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="text-white">
                 <TableHeader>
-                  <TableRow className="border-neutral-800">
-                    <TableHead className="text-neutral-400">Username</TableHead>
-                    <TableHead className="text-neutral-400">Email</TableHead>
-                    <TableHead className="text-neutral-400">Status</TableHead>
-                    <TableHead className="text-neutral-400">Penalties</TableHead>
-                    <TableHead className="text-neutral-400">Watchlist</TableHead>
-                    <TableHead className="text-neutral-400">Reviews</TableHead>
-                    <TableHead className="text-neutral-400 text-right">Actions</TableHead>
+                  <TableRow className="border-neutral-800 text-neutral-200">
+                    <TableHead className="text-neutral-200">Username</TableHead>
+                    <TableHead className="text-neutral-200">Email</TableHead>
+                    <TableHead className="text-neutral-200">Status</TableHead>
+                    <TableHead className="text-neutral-200">Penalties</TableHead>
+                    <TableHead className="text-neutral-200">Watchlist</TableHead>
+                    <TableHead className="text-neutral-200">Reviews</TableHead>
+                    <TableHead className="text-neutral-200 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
-                    <TableRow key={user.id} className="border-neutral-800">
+                    <TableRow key={user.id} className="border-neutral-800 text-white/90">
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {user.name}
@@ -407,7 +407,7 @@ export function AdminPanel({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-neutral-400">{user.email}</TableCell>
+                      <TableCell className="text-neutral-200">{user.email}</TableCell>
                       <TableCell>
                         {user.isFlagged ? (
                           <div className="flex items-center gap-2">
@@ -429,7 +429,7 @@ export function AdminPanel({
                               {user.penalties}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-500">None</span>
+                            <span className="text-neutral-300">None</span>
                           )}
                         </div>
                       </TableCell>
@@ -473,7 +473,7 @@ export function AdminPanel({
                               <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
                                 <DialogHeader>
                                   <DialogTitle>Flag User</DialogTitle>
-                                  <DialogDescription className="text-neutral-400">
+                                  <DialogDescription className="text-neutral-300">
                                     Flag {user.name} for policy violations
                                   </DialogDescription>
                                 </DialogHeader>
@@ -531,7 +531,7 @@ export function AdminPanel({
                             <AlertDialogContent className="bg-neutral-900 border-neutral-800 text-white">
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete User Account</AlertDialogTitle>
-                                <AlertDialogDescription className="text-neutral-400">
+                                <AlertDialogDescription className="text-neutral-300">
                                   Are you sure you want to delete {user.name}'s account? This will permanently remove their watchlist, reviews, and all associated data. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -560,23 +560,23 @@ export function AdminPanel({
 
         {/* Reviews Management */}
         <TabsContent value="reviews" className="space-y-4">
-          <Card className="bg-neutral-900 border-neutral-800">
+          <Card className="bg-neutral-900 border-neutral-800 text-white">
             <CardHeader>
               <div>
                 <CardTitle>Reviews Management</CardTitle>
-                <p className="text-sm text-neutral-400 mt-1">{reviews.length} total reviews</p>
+                <p className="text-sm text-neutral-300 mt-1">{reviews.length} total reviews</p>
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="text-white">
                 <TableHeader>
-                  <TableRow className="border-neutral-800">
-                    <TableHead className="text-neutral-400">Movie</TableHead>
-                    <TableHead className="text-neutral-400">User</TableHead>
-                    <TableHead className="text-neutral-400">Rating</TableHead>
-                    <TableHead className="text-neutral-400">Comment</TableHead>
-                    <TableHead className="text-neutral-400">Date</TableHead>
-                    <TableHead className="text-neutral-400 text-right">Actions</TableHead>
+                  <TableRow className="border-neutral-800 text-neutral-200">
+                    <TableHead className="text-neutral-200">Movie</TableHead>
+                    <TableHead className="text-neutral-200">User</TableHead>
+                    <TableHead className="text-neutral-200">Rating</TableHead>
+                    <TableHead className="text-neutral-200">Comment</TableHead>
+                    <TableHead className="text-neutral-200">Date</TableHead>
+                    <TableHead className="text-neutral-200 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -584,7 +584,7 @@ export function AdminPanel({
                     const movie = movies.find((m) => m.id === review.id);
                     const user = users.find((u) => u.id === review.userId);
                     return (
-                      <TableRow key={index} className="border-neutral-800">
+                      <TableRow key={index} className="border-neutral-800 text-white/90">
                         <TableCell>{movie?.title || "Unknown"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -620,7 +620,7 @@ export function AdminPanel({
                             <AlertDialogContent className="bg-neutral-900 border-neutral-800 text-white">
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Review</AlertDialogTitle>
-                                <AlertDialogDescription className="text-neutral-400">
+                                <AlertDialogDescription className="text-neutral-300">
                                   Are you sure you want to delete this review from {review.userName}? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -651,13 +651,13 @@ export function AdminPanel({
         <TabsContent value="flags" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Flagged Users */}
-            <Card className="bg-neutral-900 border-neutral-800">
+            <Card className="bg-neutral-900 border-neutral-800 text-white">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Flag className="h-5 w-5 text-red-500" />
                   <div>
                     <CardTitle>Flagged Users</CardTitle>
-                    <p className="text-sm text-neutral-400 mt-1">{flaggedUsers.length} users flagged</p>
+                    <p className="text-sm text-neutral-300 mt-1">{flaggedUsers.length} users flagged</p>
                   </div>
                 </div>
               </CardHeader>
@@ -674,7 +674,7 @@ export function AdminPanel({
                                 Flagged
                               </Badge>
                             </div>
-                            <p className="text-sm text-neutral-400">{user.email}</p>
+                            <p className="text-sm text-neutral-300">{user.email}</p>
                           </div>
                           <Button
                             variant="ghost"
@@ -692,7 +692,7 @@ export function AdminPanel({
                             <p className="text-sm">{user.flagReason}</p>
                           </div>
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-neutral-400">
+                            <span className="text-neutral-300">
                               {reviews.filter((r) => r.userId === user.id).length} reviews • {watchlists[user.id]?.length || 0} in watchlist
                             </span>
                             {user.penalties > 0 && (
@@ -715,13 +715,13 @@ export function AdminPanel({
             </Card>
 
             {/* Users with Penalties */}
-            <Card className="bg-neutral-900 border-neutral-800">
+            <Card className="bg-neutral-900 border-neutral-800 text-white">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-yellow-500" />
                   <div>
                     <CardTitle>Users with Penalties</CardTitle>
-                    <p className="text-sm text-neutral-400 mt-1">{usersWithPenalties.length} users with penalties</p>
+                    <p className="text-sm text-neutral-300 mt-1">{usersWithPenalties.length} users with penalties</p>
                   </div>
                 </div>
               </CardHeader>
@@ -744,7 +744,7 @@ export function AdminPanel({
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-neutral-400">{user.email}</p>
+                            <p className="text-sm text-neutral-300">{user.email}</p>
                           </div>
                           <div className="flex gap-1">
                             <Button
@@ -767,7 +767,7 @@ export function AdminPanel({
                             </Button>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm text-neutral-400">
+                        <div className="flex items-center justify-between text-sm text-neutral-300">
                           <span>
                             {reviews.filter((r) => r.userId === user.id).length} reviews • {watchlists[user.id]?.length || 0} in watchlist
                           </span>

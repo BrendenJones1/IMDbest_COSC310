@@ -11,6 +11,7 @@ import { UserSwitcher } from "./components/UserSwitcher";
 import { UserDashboard } from "./components/UserDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { RegisterScreen } from "./components/RegisterScreen";
+import { LoginScreen } from "./components/LoginScreen";
 import { Button } from "./components/ui/button";
 import {
   DropdownMenu,
@@ -171,6 +172,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  password: string;
   joinDate: string;
   isFlagged: boolean;
   penalties: number;
@@ -183,6 +185,7 @@ const mockUsers: User[] = [
     id: "alice",
     name: "Alice",
     email: "alice@example.com",
+    password: "password123",
     joinDate: "2024-01-15",
     isFlagged: false,
     penalties: 0,
@@ -192,6 +195,7 @@ const mockUsers: User[] = [
     id: "bob",
     name: "Bob",
     email: "bob@example.com",
+    password: "password123",
     joinDate: "2024-02-20",
     isFlagged: false,
     penalties: 0,
@@ -201,6 +205,7 @@ const mockUsers: User[] = [
     id: "charlie",
     name: "Charlie",
     email: "charlie@example.com",
+    password: "password123",
     joinDate: "2024-03-10",
     isFlagged: true,
     penalties: 2,
@@ -224,7 +229,8 @@ interface Review {
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [showRegister, setShowRegister] = useState(false); // Set to false to show main app
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authError, setAuthError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState("Alice");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
@@ -478,31 +484,70 @@ export default function App() {
       ? "My Watchlist"
       : activeSection.toUpperCase();
 
-  // Show register screen if not authenticated
-  if (!isAuthenticated && showRegister) {
+  if (!isAuthenticated) {
+    if (authMode === "register") {
+      return (
+        <RegisterScreen
+          onRegister={(data) => {
+            setAuthError(null);
+            const emailTaken = users.some((u) => u.email.toLowerCase() === data.email.toLowerCase());
+            if (emailTaken) {
+              setAuthError("An account already exists with that email.");
+              return;
+            }
+
+            const baseId = slugify(data.name);
+            let uniqueId = baseId;
+            let suffix = 1;
+            while (users.some((u) => u.id === uniqueId)) {
+              uniqueId = `${baseId}-${suffix++}`;
+            }
+
+            const newUser: User = {
+              id: uniqueId,
+              name: data.name,
+              email: data.email,
+              password: data.password,
+              joinDate: new Date().toISOString().split("T")[0],
+              isFlagged: false,
+              penalties: 0,
+              isAdmin: data.isAdmin,
+            };
+            setUsers((prev) => [...prev, newUser]);
+            setCurrentUser(data.name);
+            setIsAuthenticated(true);
+            setAuthMode("login");
+          }}
+          onSwitchToLogin={() => {
+            setAuthMode("login");
+            setAuthError(null);
+          }}
+          errorMessage={authError}
+        />
+      );
+    }
+
     return (
-      <RegisterScreen
-        onRegister={(data) => {
-          // Demo: Add new user and authenticate
-          const newUser = {
-            id: data.name.toLowerCase(),
-            name: data.name,
-            email: data.email,
-            joinDate: new Date().toISOString().split("T")[0],
-            isFlagged: false,
-            penalties: 0,
-            isAdmin: data.isAdmin,
-          };
-          setUsers([...users, newUser]);
-          setCurrentUser(data.name);
+      <LoginScreen
+        onLogin={({ email, password }) => {
+          setAuthError(null);
+          const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+          if (!user) {
+            setAuthError("No account found with that email.");
+            return;
+          }
+          if (user.password !== password) {
+            setAuthError("Incorrect password. Please try again.");
+            return;
+          }
+          setCurrentUser(user.name);
           setIsAuthenticated(true);
-          setShowRegister(false);
         }}
-        onSwitchToLogin={() => {
-          // For demo, just authenticate as Alice
-          setIsAuthenticated(true);
-          setShowRegister(false);
+        onSwitchToRegister={() => {
+          setAuthMode("register");
+          setAuthError(null);
         }}
+        errorMessage={authError}
       />
     );
   }
@@ -549,29 +594,29 @@ export default function App() {
                     />
                   </div>
                   <div className="ml-4">
-                    <UserSwitcher
-                      currentUser={currentUser}
-                      currentUserEmail={currentUserObj?.email}
-                      onSignOut={() => {
-                        // Sign out and show register screen
-                        setIsAuthenticated(false);
-                        setShowRegister(true);
-                        setCurrentUser("Alice");
-                        setActiveSection("home");
-                      }}
-                    />
+                  <UserSwitcher
+                    currentUser={currentUser}
+                    currentUserEmail={currentUserObj?.email}
+                    onSignOut={() => {
+                      // Sign out and return to the login screen
+                      setIsAuthenticated(false);
+                      setAuthMode("login");
+                      setAuthError(null);
+                      setActiveSection("home");
+                    }}
+                  />
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 gap-2">
+                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white gap-2">
                         <ArrowUpDown className="h-4 w-4" />
                         Sort: {sortBy === "title" ? "Title" : sortBy === "rating" ? "Rating" : "Year"}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800">
+                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
                       <DropdownMenuItem onClick={() => setSortBy("title")}>
                         Title
                       </DropdownMenuItem>
@@ -586,12 +631,12 @@ export default function App() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 gap-2">
+                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white gap-2">
                         <SlidersHorizontal className="h-4 w-4" />
                         Filter: {filterGenre === "all" ? "All Genres" : filterGenre}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800">
+                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
                       <DropdownMenuItem onClick={() => setFilterGenre("all")}>
                         All Genres
                       </DropdownMenuItem>
