@@ -55,11 +55,11 @@ export function UserManagement({ users, currentUser, onUserChange }: UserManagem
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="bg-neutral-900 border-neutral-800">
+            <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white">
               Switch User
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-neutral-900 border-neutral-800">
+          <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
             {users.map((user) => (
               <DropdownMenuItem
                 key={user.id}

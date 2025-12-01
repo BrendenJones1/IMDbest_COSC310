@@ -1,32 +1,33 @@
 import { useState } from "react";
-import { Film, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Film, Mail, Lock, User, Eye, EyeOff, Shield, UserCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 
 interface RegisterScreenProps {
-  onRegister?: (data: { username: string; email: string; password: string }) => void;
+  onRegister?: (data: { name: string; email: string; password: string; isAdmin: boolean }) => void;
   onSwitchToLogin?: () => void;
   errorMessage?: string | null;
-  isSubmitting?: boolean;
 }
 
-export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage, isSubmitting }: RegisterScreenProps) {
-  const [username, setUsername] = useState("");
+export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage }: RegisterScreenProps) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [role, setRole] = useState<"user" | "admin">("user");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!username.trim()) {
-      newErrors.username = "Username is required";
+    if (!name.trim()) {
+      newErrors.name = "Name is required";
     }
 
     if (!email.trim()) {
@@ -60,10 +61,10 @@ export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage, isSu
     
     if (validateForm()) {
       if (onRegister) {
-        onRegister({ username, email, password });
+        onRegister({ name, email, password, isAdmin: role === "admin" });
       } else {
         // Demo mode
-        alert(`Account created for ${username}!\\nEmail: ${email}\\n\\nIn production, this would create a real account.`);
+        alert(`Account created for ${name}!\\nEmail: ${email}\\nRole: ${role === "admin" ? "Admin" : "User"}\\n\\nIn production, this would create a real account.`);
       }
     }
   };
@@ -95,24 +96,54 @@ export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage, isSu
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username Field */}
+            {/* Role Selection */}
+            <div className="space-y-3">
+              <Label className="text-white">Account Type</Label>
+              <RadioGroup value={role} onValueChange={(value) => setRole(value as "user" | "admin")}>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2 flex-1 p-3 rounded-lg border border-neutral-700 bg-neutral-800/50 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <RadioGroupItem value="user" id="user" className="border-neutral-600 text-red-600" />
+                    <Label htmlFor="user" className="flex items-center gap-2 text-white cursor-pointer flex-1">
+                      <UserCircle className="h-5 w-5 text-neutral-400" />
+                      <div>
+                        <div>User</div>
+                        <div className="text-xs text-neutral-400">Browse and review movies</div>
+                      </div>
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 flex-1 p-3 rounded-lg border border-neutral-700 bg-neutral-800/50 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <RadioGroupItem value="admin" id="admin" className="border-neutral-600 text-red-600" />
+                    <Label htmlFor="admin" className="flex items-center gap-2 text-white cursor-pointer flex-1">
+                      <Shield className="h-5 w-5 text-neutral-400" />
+                      <div>
+                        <div>Admin</div>
+                        <div className="text-xs text-neutral-400">Manage users and content</div>
+                      </div>
+                    </Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Name Field */}
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-white">
-                Username
+              <Label htmlFor="name" className="text-white">
+                Name
               </Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
                 <Input
-                  id="username"
+                  id="name"
                   type="text"
-                  placeholder="Choose a unique username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
                 />
               </div>
-              {errors.username && (
-                <p className="text-red-400 text-sm">{errors.username}</p>
+              {errors.name && (
+                <p className="text-red-400 text-sm">{errors.name}</p>
               )}
             </div>
 
@@ -230,10 +261,9 @@ export function RegisterScreen({ onRegister, onSwitchToLogin, errorMessage, isSu
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white disabled:opacity-70"
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
             >
-              {isSubmitting ? "Creating account..." : "Create Account"}
+              Create Account
             </Button>
           </form>
 

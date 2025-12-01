@@ -1,23 +1,17 @@
 import { useState } from "react";
-import { Film, User, Lock, Eye, EyeOff } from "lucide-react";
+import { Film, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
 interface LoginScreenProps {
-  onLogin?: (data: { username: string; password: string }) => void;
+  onLogin?: (data: { email: string; password: string }) => void;
   onSwitchToRegister?: () => void;
   errorMessage?: string | null;
-  isSubmitting?: boolean;
 }
 
-export function LoginScreen({
-  onLogin,
-  onSwitchToRegister,
-  errorMessage,
-  isSubmitting,
-}: LoginScreenProps) {
-  const [username, setUsername] = useState("");
+export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -25,9 +19,12 @@ export function LoginScreen({
   const validateForm = () => {
     const nextErrors: { [key: string]: string } = {};
 
-    if (!username.trim()) {
-      nextErrors.username = "Username is required";
+    if (!email.trim()) {
+      nextErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = "Please enter a valid email";
     }
+
     if (!password) {
       nextErrors.password = "Password is required";
     }
@@ -38,12 +35,14 @@ export function LoginScreen({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     if (onLogin) {
-      onLogin({ username, password });
+      onLogin({ email, password });
     } else {
-      alert(`Demo login as ${username}. In production this would authenticate with the backend.`);
+      alert(`Login attempt for ${email}.\nIn production this would authenticate against the backend.`);
     }
   };
 
@@ -71,21 +70,21 @@ export function LoginScreen({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login-username" className="text-white">
-                Username
+              <Label htmlFor="login-email" className="text-white">
+                Email
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
                 <Input
-                  id="login-username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="login-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
                 />
               </div>
-              {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
+              {errors.email && <p className="text-red-400 text-sm">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -113,12 +112,8 @@ export function LoginScreen({
               {errors.password && <p className="text-red-400 text-sm">{errors.password}</p>}
             </div>
 
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-70"
-            >
-              {isSubmitting ? "Signing in..." : "Sign in"}
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white">
+              Sign in
             </Button>
           </form>
 
