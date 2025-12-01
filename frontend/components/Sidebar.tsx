@@ -4,13 +4,14 @@ import { Button } from "./ui/button";
 interface SidebarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
+  isAdmin?: boolean;
 }
 
-export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
+export function Sidebar({ activeSection, onSectionChange, isAdmin = false }: SidebarProps) {
   const menuItems = [
     { id: "home", label: "Dashboard", icon: Home },
     { id: "watchlist", label: "Watchlist", icon: Heart },
-    { id: "admin", label: "Admin", icon: Settings },
+    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Settings }] : []),
     { id: "docs", label: "Docs", icon: BookOpen },
   ];
 
