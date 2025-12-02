@@ -212,6 +212,26 @@ const mockUsers: User[] = [
     flagReason: "Spam reviews",
     isAdmin: false,
   },
+  {
+    id: "demo-admin",
+    name: "admin@demo.com",
+    email: "admin@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: true,
+  },
+  {
+    id: "demo-user",
+    name: "user@demo.com",
+    email: "user@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+  },
 ];
 
 interface UserWatchlist {
@@ -529,11 +549,16 @@ export default function App() {
 
     return (
       <LoginScreen
-        onLogin={({ email, password }) => {
+        onLogin={({ username, password }) => {
           setAuthError(null);
-          const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+          const normalizedInput = username.trim().toLowerCase();
+          const user = users.find(
+            (u) =>
+              u.email.toLowerCase() === normalizedInput ||
+              u.name.toLowerCase() === normalizedInput
+          );
           if (!user) {
-            setAuthError("No account found with that email.");
+            setAuthError("No account found with those credentials.");
             return;
           }
           if (user.password !== password) {
@@ -556,12 +581,19 @@ export default function App() {
     <div className="flex h-screen bg-neutral-950 text-white">
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={(section) => {
+          if (section === "admin" && !isAdmin) {
+            setActiveSection("home");
+            return;
+          }
+          setActiveSection(section);
+        }}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 overflow-auto">
         <div className="p-8">
-          {activeSection === "admin" ? (
+          {activeSection === "admin" && isAdmin ? (
             <AdminPanel
               movies={movies}
               users={users}

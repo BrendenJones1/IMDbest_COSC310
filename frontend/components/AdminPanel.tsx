@@ -152,20 +152,20 @@ export function AdminPanel({
       </div>
 
       <Tabs defaultValue="movies" className="w-full">
-        <TabsList className="bg-neutral-900 border-neutral-800">
-          <TabsTrigger value="movies" className="gap-2">
+        <TabsList className="bg-neutral-900 border-neutral-800 text-white">
+          <TabsTrigger value="movies" className="gap-2 text-white data-[state=active]:text-black">
             <FilmIcon className="h-4 w-4" />
             Movies
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2">
+          <TabsTrigger value="users" className="gap-2 text-white data-[state=active]:text-black">
             <UsersIcon className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="reviews" className="gap-2">
+          <TabsTrigger value="reviews" className="gap-2 text-white data-[state=active]:text-black">
             <MessageSquare className="h-4 w-4" />
             Reviews
           </TabsTrigger>
-          <TabsTrigger value="flags" className="gap-2">
+          <TabsTrigger value="flags" className="gap-2 text-white data-[state=active]:text-black">
             <Flag className="h-4 w-4" />
             Flags & Penalties
           </TabsTrigger>

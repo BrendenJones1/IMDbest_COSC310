@@ -375,12 +375,12 @@ export function ApiDocs() {
       </div>
 
       <Tabs defaultValue="search" className="space-y-6">
-        <TabsList className="bg-neutral-900 border-neutral-800">
-          <TabsTrigger value="search">Search</TabsTrigger>
-          <TabsTrigger value="users">Users & Auth</TabsTrigger>
-          <TabsTrigger value="flags">Flags</TabsTrigger>
-          <TabsTrigger value="penalties">Penalties</TabsTrigger>
-          <TabsTrigger value="admin">Admin</TabsTrigger>
+        <TabsList className="bg-neutral-900 border-neutral-800 text-white">
+          <TabsTrigger value="search" className="text-white data-[state=active]:text-black">Search</TabsTrigger>
+          <TabsTrigger value="users" className="text-white data-[state=active]:text-black">Users & Auth</TabsTrigger>
+          <TabsTrigger value="flags" className="text-white data-[state=active]:text-black">Flags</TabsTrigger>
+          <TabsTrigger value="penalties" className="text-white data-[state=active]:text-black">Penalties</TabsTrigger>
+          <TabsTrigger value="admin" className="text-white data-[state=active]:text-black">Admin</TabsTrigger>
         </TabsList>
 
         <TabsContent value="search" className="space-y-4">

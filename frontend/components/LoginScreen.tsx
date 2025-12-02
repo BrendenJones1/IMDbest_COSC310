@@ -1,17 +1,23 @@
 import { useState } from "react";
-import { Film, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Film, User, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
 interface LoginScreenProps {
-  onLogin?: (data: { email: string; password: string }) => void;
+  onLogin?: (data: { username: string; password: string }) => void;
   onSwitchToRegister?: () => void;
   errorMessage?: string | null;
+  isSubmitting?: boolean;
 }
 
-export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
-  const [email, setEmail] = useState("");
+const DEMO_ACCOUNTS = [
+  { label: "Admin demo", username: "admin@demo.com", password: "password" },
+  { label: "User demo", username: "user@demo.com", password: "password" },
+];
+
+export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage, isSubmitting }: LoginScreenProps) {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -19,10 +25,8 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
   const validateForm = () => {
     const nextErrors: { [key: string]: string } = {};
 
-    if (!email.trim()) {
-      nextErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      nextErrors.email = "Please enter a valid email";
+    if (!username.trim()) {
+      nextErrors.username = "Username or email is required";
     }
 
     if (!password) {
@@ -40,10 +44,16 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
     }
 
     if (onLogin) {
-      onLogin({ email, password });
+      onLogin({ username, password });
     } else {
-      alert(`Login attempt for ${email}.\nIn production this would authenticate against the backend.`);
+      alert(`Login attempt for ${username}.\nIn production this would authenticate against the backend.`);
     }
+  };
+
+  const handlePrefill = (demoUsername: string, demoPassword: string) => {
+    setUsername(demoUsername);
+    setPassword(demoPassword);
+    setErrors({});
   };
 
   return (
@@ -70,21 +80,21 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login-email" className="text-white">
-                Email
+              <Label htmlFor="login-username" className="text-white">
+                Username or email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
                 <Input
-                  id="login-email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="login-username"
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
                 />
               </div>
-              {errors.email && <p className="text-red-400 text-sm">{errors.email}</p>}
+              {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
             </div>
 
             <div className="space-y-2">
@@ -112,10 +122,36 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
               {errors.password && <p className="text-red-400 text-sm">{errors.password}</p>}
             </div>
 
-            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white">
-              Sign in
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-70"
+            >
+              {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
           </form>
+
+          <div className="mt-6 space-y-3">
+            <p className="text-sm text-neutral-300">
+              Demo accounts (password: <span className="text-white font-semibold">password</span>)
+            </p>
+            <div className="grid gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.username}
+                  type="button"
+                  onClick={() => handlePrefill(account.username, account.password)}
+                  className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-left text-sm text-white hover:bg-neutral-800 transition"
+                >
+                  <div>
+                    <div className="font-medium">{account.label}</div>
+                    <div className="text-neutral-400 text-xs">{account.username}</div>
+                  </div>
+                  <span className="text-xs uppercase tracking-wide text-red-300">Demo</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-6 text-center text-sm text-neutral-400">
             <span>Need an account?</span>{" "}
