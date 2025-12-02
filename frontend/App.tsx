@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Sidebar } from "./components/Sidebar";
@@ -131,6 +131,33 @@ const carouselSlides = [
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+const mapBackendUser = (backendUser: any): User => {
+  const fallbackId =
+    backendUser.id ??
+    backendUser.backendId ??
+    Math.random().toString(36).slice(2);
+  const backendId = fallbackId;
+  const username = backendUser.username || backendUser.email || `user-${backendId}`;
+  const joinDate = backendUser.registered_at
+    ? backendUser.registered_at.split("T")[0]
+    : new Date().toISOString().split("T")[0];
+
+  return {
+    id: username,
+    name: username,
+    email: backendUser.email || "",
+    password: "",
+    joinDate,
+    isFlagged: Boolean(backendUser.isFlagged ?? backendUser.is_flagged ?? false),
+    penalties: Array.isArray(backendUser.penalties)
+      ? backendUser.penalties.length
+      : Number(backendUser.penalties ?? 0),
+    flagReason: backendUser.flagReason,
+    isAdmin: backendUser.role === "admin",
+    backendId,
+  };
+};
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -178,6 +205,7 @@ interface User {
   penalties: number;
   flagReason?: string;
   isAdmin: boolean;
+  backendId?: string | number;
 }
 
 const mockUsers: User[] = [
@@ -212,6 +240,50 @@ const mockUsers: User[] = [
     flagReason: "Spam reviews",
     isAdmin: false,
   },
+  {
+    id: "admin-demo",
+    name: "Admin Demo",
+    email: "admin@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: true,
+    backendId: "admin-demo",
+  },
+  {
+    id: "messi-demo",
+    name: "Messi",
+    email: "messi@demo.com",
+    password: "password",
+    joinDate: "2024-05-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+    backendId: "messi-demo",
+  },
+  {
+    id: "elon-demo",
+    name: "Elon",
+    email: "elon@demo.com",
+    password: "password",
+    joinDate: "2024-05-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+    backendId: "elon-demo",
+  },
+  {
+    id: "trump-demo",
+    name: "Trump",
+    email: "trump@demo.com",
+    password: "password",
+    joinDate: "2024-05-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+    backendId: "trump-demo",
+  },
 ];
 
 interface UserWatchlist {
@@ -228,9 +300,10 @@ interface Review {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState("Alice");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
@@ -242,6 +315,7 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const usersRef = useRef<User[]>(mockUsers);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
     bob: ["urban-legends", "love-in-paris"],
@@ -322,9 +396,77 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch users: ${response.status}`);
+        }
+        const payload = await response.json();
+        const mapped = Array.isArray(payload) ? payload.map(mapBackendUser) : [];
+        if (mapped.length > 0) {
+          setUsers(mapped);
+        }
+      } catch (error) {
+        console.warn("Using local users fallback. Unable to load backend users.", error);
+      }
+    };
+
+    fetchUsers();
+
+    return () => controller.abort();
+  }, []);
+
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+
+  const resolveUsernameForLogin = async (identifier: string) => {
+    const lowered = identifier.toLowerCase();
+    const localMatch = usersRef.current.find(
+      (u) =>
+        u.email.toLowerCase() === lowered ||
+        u.name.toLowerCase() === lowered
+    );
+    if (localMatch) {
+      return localMatch.name;
+    }
+
+    if (!identifier.includes("@")) {
+      return identifier;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/`);
+      if (!response.ok) {
+        return identifier;
+      }
+      const payload = await response.json();
+      if (Array.isArray(payload)) {
+        const fromBackend = payload.find(
+          (user: any) =>
+            typeof user.email === "string" &&
+            user.email.toLowerCase() === lowered
+        );
+        if (fromBackend?.username) {
+          return fromBackend.username;
+        }
+      }
+    } catch {
+      // ignore fetch errors and fall back to identifier
+    }
+
+    return identifier;
+  };
 
   const handleWatchlistToggle = (movieId: string) => {
     setWatchlists((prev) => {
@@ -529,19 +671,39 @@ export default function App() {
 
     return (
       <LoginScreen
-        onLogin={({ email, password }) => {
+        onLogin={async ({ email, password }) => {
           setAuthError(null);
-          const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-          if (!user) {
-            setAuthError("No account found with that email.");
-            return;
+          const identifier = email.trim();
+
+          try {
+            const usernameForLogin = await resolveUsernameForLogin(identifier);
+            const params = new URLSearchParams({
+              username: usernameForLogin,
+              password,
+            });
+            const response = await fetch(`${API_BASE_URL}/users/login?${params.toString()}`, {
+              method: "POST",
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.detail || "Unable to log in. Please check your credentials.");
+            }
+
+            const backendUser = mapBackendUser(payload.user);
+            setAuthToken(payload.token);
+            setCurrentUser(backendUser.name);
+            setIsAuthenticated(true);
+            setUsers((prev) => {
+              const existing = prev.find((u) => u.name.toLowerCase() === backendUser.name.toLowerCase());
+              if (existing) {
+                return prev.map((u) => (u.name.toLowerCase() === backendUser.name.toLowerCase() ? backendUser : u));
+              }
+              return [...prev, backendUser];
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Login failed. Please try again.";
+            setAuthError(message);
           }
-          if (user.password !== password) {
-            setAuthError("Incorrect password. Please try again.");
-            return;
-          }
-          setCurrentUser(user.name);
-          setIsAuthenticated(true);
         }}
         onSwitchToRegister={() => {
           setAuthMode("register");
@@ -603,6 +765,7 @@ export default function App() {
                       setAuthMode("login");
                       setAuthError(null);
                       setActiveSection("home");
+                      setAuthToken(null);
                     }}
                   />
                   </div>

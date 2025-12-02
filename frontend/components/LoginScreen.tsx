@@ -10,9 +10,17 @@ interface LoginScreenProps {
   errorMessage?: string | null;
 }
 
+const DEMO_ACCOUNTS = [
+  { label: "Admin Demo", email: "admin@demo.com", password: "password" },
+  { label: "Messi", email: "messi@demo.com", password: "password" },
+  { label: "Elon", email: "elon@demo.com", password: "password" },
+  { label: "Trump", email: "trump@demo.com", password: "password" },
+];
+
 export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [selectedDemo, setSelectedDemo] = useState(DEMO_ACCOUNTS[0].email);
+  const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
+  const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -20,9 +28,7 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
     const nextErrors: { [key: string]: string } = {};
 
     if (!email.trim()) {
-      nextErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      nextErrors.email = "Please enter a valid email";
+      nextErrors.email = "Email or username is required";
     }
 
     if (!password) {
@@ -71,14 +77,14 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="login-email" className="text-white">
-                Email
+                Email or username
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
                 <Input
                   id="login-email"
-                  type="email"
-                  placeholder="Enter your email"
+                  type="text"
+                  placeholder="Enter your email or username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
@@ -117,12 +123,52 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-neutral-400">
-            <span>Need an account?</span>{" "}
-            <button
-              type="button"
-              className="text-red-400 hover:text-red-300 font-medium"
-              onClick={onSwitchToRegister}
+          <div className="mt-6 space-y-2">
+            <p className="text-sm text-neutral-300">
+              Demo accounts (password is <span className="font-semibold text-white">password</span>)
+            </p>
+            <div className="flex gap-2">
+              <select
+                value={selectedDemo}
+                onChange={(e) => {
+                  setSelectedDemo(e.target.value);
+                  const selected = DEMO_ACCOUNTS.find((acct) => acct.email === e.target.value);
+                  if (selected) {
+                    setEmail(selected.email);
+                    setPassword(selected.password);
+                  }
+                }}
+                className="flex-1 rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                {DEMO_ACCOUNTS.map((account) => (
+                  <option key={account.email} value={account.email}>
+                    {account.label} ({account.email})
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                className="bg-neutral-800 border border-neutral-600 text-white"
+                onClick={() => {
+                  const selected = DEMO_ACCOUNTS.find((acct) => acct.email === selectedDemo);
+                  if (selected) {
+                    setEmail(selected.email);
+                    setPassword(selected.password);
+                  }
+                }}
+              >
+                Prefill
+              </Button>
+            </div>
+          </div>
+
+            <div className="mt-6 text-center text-sm text-neutral-400">
+              <span>Need an account?</span>{" "}
+              <button
+                type="button"
+                className="text-red-400 hover:text-red-300 font-medium"
+                onClick={onSwitchToRegister}
             >
               Create one now
             </button>
