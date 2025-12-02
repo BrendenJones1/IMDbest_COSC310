@@ -10,6 +10,11 @@ interface LoginScreenProps {
   errorMessage?: string | null;
 }
 
+const DEMO_ACCOUNTS = [
+  { label: "Admin demo", email: "admin@demo.com", password: "password" },
+  { label: "User demo", email: "user@demo.com", password: "password" },
+];
+
 export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +49,12 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
     } else {
       alert(`Login attempt for ${email}.\nIn production this would authenticate against the backend.`);
     }
+  };
+
+  const handlePrefill = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setErrors({});
   };
 
   return (
@@ -116,6 +127,28 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
               Sign in
             </Button>
           </form>
+
+          <div className="mt-6 space-y-2">
+            <p className="text-sm text-neutral-300">
+              Demo accounts (password: <span className="text-white font-semibold">password</span>)
+            </p>
+            <div className="grid gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => handlePrefill(account.email, account.password)}
+                  className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-left text-sm text-white hover:bg-neutral-800 transition"
+                >
+                  <div>
+                    <div className="font-medium">{account.label}</div>
+                    <div className="text-xs text-neutral-400">{account.email}</div>
+                  </div>
+                  <span className="text-xs uppercase tracking-wide text-red-300">Demo</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-6 text-center text-sm text-neutral-400">
             <span>Need an account?</span>{" "}

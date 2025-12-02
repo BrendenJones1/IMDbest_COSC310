@@ -20,5 +20,25 @@
     "watchlist": [],
     "token_version": 0,
     "registered_at": "2025-11-30T01:42:16.700851Z"
+  },
+  {
+    "id": "admin-demo",
+    "username": "admin@demo.com",
+    "email": "admin@demo.com",
+    "password_hash": "$2b$12$jPL9fZgGTWExLPhWO0mQIOKMs5lNvkrS5VrjDXn/JL.ix6sznrSGm",
+    "role": "admin",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
+  },
+  {
+    "id": "user-demo",
+    "username": "user@demo.com",
+    "email": "user@demo.com",
+    "password_hash": "$2b$12$jPL9fZgGTWExLPhWO0mQIOKMs5lNvkrS5VrjDXn/JL.ix6sznrSGm",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": []
   }
 ]
