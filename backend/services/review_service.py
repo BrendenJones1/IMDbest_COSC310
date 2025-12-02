@@ -4,11 +4,14 @@ from typing import Optional, List, Dict, Tuple
 from pathlib import Path
 
 from fastapi import HTTPException, status
+from threading import RLock  # NEW
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from backend.repositories.movie_repo import MovieRepository
-from backend.repositories.reviews_repo import ReviewRepository
+from repositories.movie_repo import MovieRepository, ReviewRepository
 
+
+# NEW: lock to protect read-modify-write review+metadata sequences
+_REVIEW_RMW_LOCK = RLock()
 
 class ReviewService:
     """
@@ -100,41 +103,38 @@ class ReviewService:
         """
         Create or update a user's review for a movie and keep aggregated rating metadata in sync.
         """
-        self._ensure_movie_exists(movie_id)
-        metadata = MovieRepository.get_movie_metadata(movie_id)
-        # Ensure metadata has expected fields (tests may create minimal metadata.json)
-        metadata.setdefault("userRatingCount", 0)
-        metadata.setdefault("userRatingTotal", 0.0)
-        metadata.setdefault("userRatingAverage", 0.0)
-        review_data = ReviewRepository.get_review_data(movie_id)
+        with _REVIEW_RMW_LOCK:
+            self._ensure_movie_exists(movie_id)
+            metadata = MovieRepository.get_movie_metadata(movie_id)
+            review_data = ReviewRepository.get_review_data(movie_id)
 
-        current = review_data["reviews"].get(user_id)
-        now = datetime.now(timezone.utc)
+            current = review_data["reviews"].get(user_id)
+            now = datetime.utcnow()
 
-        if current:
-            old_rating = current["rating"]
-            metadata["userRatingTotal"] -= old_rating
-        else:
-            metadata["userRatingCount"] += 1
+            if current:
+                old_rating = current["rating"]
+                metadata["userRatingTotal"] -= old_rating
+            else:
+                metadata["userRatingCount"] += 1
 
-        metadata["userRatingTotal"] += review.rating
-        metadata["userRatingAverage"] = round(
-            metadata["userRatingTotal"] / metadata["userRatingCount"], 2
-        )
+            metadata["userRatingTotal"] += review.rating
+            metadata["userRatingAverage"] = round(
+                metadata["userRatingTotal"] / metadata["userRatingCount"], 2
+            )
 
-        updated_review = {
-            "user_id": user_id,
-            "rating": review.rating,
-            "review_text": review.review_text,
-            "upvotes": current["upvotes"] if current else 0,
-            "downvotes": current["downvotes"] if current else 0,
-            "created_at": current["created_at"] if current else now.isoformat(),
-            "updated_at": now.isoformat(),  # track when this review was last modified
-        }
+            updated_review = {
+                "user_id": user_id,
+                "rating": review.rating,
+                "review_text": review.review_text,
+                "upvotes": current["upvotes"] if current else 0,
+                "downvotes": current["downvotes"] if current else 0,
+                "created_at": current["created_at"] if current else now.isoformat(),
+                "updated_at": now.isoformat(),  # track when this review was last modified
+            }
 
-        review_data["reviews"][user_id] = updated_review
-        ReviewRepository.save_review_data(movie_id, review_data)
-        MovieRepository.save_movie_metadata(movie_id, metadata)
+            review_data["reviews"][user_id] = updated_review
+            ReviewRepository.save_review_data(movie_id, review_data)
+            MovieRepository.save_movie_metadata(movie_id, metadata)
 
         return ReviewOut(**updated_review)
 
@@ -149,16 +149,17 @@ class ReviewService:
             return None
         return ReviewOut(**review_data["reviews"][user_id])
 
+    
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
         """
         Delete a user's review for a movie and update the movie's rating metadata.
         """
-        self._ensure_movie_exists(movie_id)
-        # get reviews   
-        review_data = ReviewRepository.get_review_data(movie_id)
+        with _REVIEW_RMW_LOCK:
+            self._ensure_movie_exists(movie_id)
+            review_data = ReviewRepository.get_review_data(movie_id)
 
-        if user_id not in review_data["reviews"]:
-            return
+            if user_id not in review_data["reviews"]:
+                return
 
         metadata = MovieRepository.get_movie_metadata(movie_id)
         # Ensure metadata has expected fields
