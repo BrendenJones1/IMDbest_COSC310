@@ -11,10 +11,8 @@ interface LoginScreenProps {
 }
 
 const DEMO_ACCOUNTS = [
-  { label: "Admin Demo", email: "admin@demo.com", password: "password" },
-  { label: "Messi", email: "messi@demo.com", password: "password" },
-  { label: "Elon", email: "elon@demo.com", password: "password" },
-  { label: "Trump", email: "trump@demo.com", password: "password" },
+  { label: "Admin demo", email: "admin@demo.com", password: "password" },
+  { label: "User demo", email: "user@demo.com", password: "password" },
 ];
 
 export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
@@ -50,6 +48,12 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
     } else {
       alert(`Login attempt for ${email}.\nIn production this would authenticate against the backend.`);
     }
+  };
+
+  const handlePrefill = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setErrors({});
   };
 
   return (
@@ -125,50 +129,32 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
 
           <div className="mt-6 space-y-2">
             <p className="text-sm text-neutral-300">
-              Demo accounts (password is <span className="font-semibold text-white">password</span>)
+              Demo accounts (password: <span className="text-white font-semibold">password</span>)
             </p>
-            <div className="flex gap-2">
-              <select
-                value={selectedDemo}
-                onChange={(e) => {
-                  setSelectedDemo(e.target.value);
-                  const selected = DEMO_ACCOUNTS.find((acct) => acct.email === e.target.value);
-                  if (selected) {
-                    setEmail(selected.email);
-                    setPassword(selected.password);
-                  }
-                }}
-                className="flex-1 rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                {DEMO_ACCOUNTS.map((account) => (
-                  <option key={account.email} value={account.email}>
-                    {account.label} ({account.email})
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="secondary"
-                className="bg-neutral-800 border border-neutral-600 text-white"
-                onClick={() => {
-                  const selected = DEMO_ACCOUNTS.find((acct) => acct.email === selectedDemo);
-                  if (selected) {
-                    setEmail(selected.email);
-                    setPassword(selected.password);
-                  }
-                }}
-              >
-                Prefill
-              </Button>
+            <div className="grid gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => handlePrefill(account.email, account.password)}
+                  className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-left text-sm text-white hover:bg-neutral-800 transition"
+                >
+                  <div>
+                    <div className="font-medium">{account.label}</div>
+                    <div className="text-xs text-neutral-400">{account.email}</div>
+                  </div>
+                  <span className="text-xs uppercase tracking-wide text-red-300">Demo</span>
+                </button>
+              ))}
             </div>
           </div>
 
-            <div className="mt-6 text-center text-sm text-neutral-400">
-              <span>Need an account?</span>{" "}
-              <button
-                type="button"
-                className="text-red-400 hover:text-red-300 font-medium"
-                onClick={onSwitchToRegister}
+          <div className="mt-6 text-center text-sm text-neutral-400">
+            <span>Need an account?</span>{" "}
+            <button
+              type="button"
+              className="text-red-400 hover:text-red-300 font-medium"
+              onClick={onSwitchToRegister}
             >
               Create one now
             </button>
