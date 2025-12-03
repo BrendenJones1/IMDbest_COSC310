@@ -212,6 +212,26 @@ const mockUsers: User[] = [
     flagReason: "Spam reviews",
     isAdmin: false,
   },
+  {
+    id: "demo-admin",
+    name: "admin@demo.com",
+    email: "admin@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: true,
+  },
+  {
+    id: "demo-user",
+    name: "user@demo.com",
+    email: "user@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+  },
 ];
 
 interface UserWatchlist {
