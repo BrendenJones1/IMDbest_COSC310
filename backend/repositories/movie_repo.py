@@ -141,6 +141,8 @@ class MovieRepository:
         metadata.setdefault("userRatingCount", 0)
         metadata.setdefault("userRatingTotal", 0.0)
         metadata.setdefault("userRatingAverage", 0.0)
+        metadata.setdefault("duration", 0)
+        metadata.setdefault("totalUserReviews", 0)
         return metadata
 
     @staticmethod
