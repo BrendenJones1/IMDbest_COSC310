@@ -534,6 +534,11 @@ export default function App() {
   };
 
   const handleWatchlistToggle = (movieId: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      return;
+    }
     setWatchlists((prev) => {
       const userList = prev[currentUserId] || [];
       const isInList = userList.includes(movieId);
@@ -548,6 +553,11 @@ export default function App() {
   };
 
   const handleAddReview = (movieId: string, rating: number, comment: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      return;
+    }
     const newReview: Review = {
       id: movieId,
       userId: currentUserId,
@@ -800,7 +810,7 @@ export default function App() {
       ? "My Watchlist"
       : activeSection.toUpperCase();
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && (activeSection === "login" || activeSection === "register")) {
     if (authMode === "register") {
       return (
         <RegisterScreen
@@ -834,10 +844,12 @@ export default function App() {
             setCurrentUser(data.name);
             setIsAuthenticated(true);
             setAuthMode("login");
+            setActiveSection("home");
           }}
           onSwitchToLogin={() => {
             setAuthMode("login");
             setAuthError(null);
+            setActiveSection("login");
           }}
           errorMessage={authError}
         />
@@ -883,6 +895,7 @@ export default function App() {
             setAuthToken(payload.token);
             setCurrentUser(mergedUser.name);
             setIsAuthenticated(true);
+            setActiveSection("home");
             setUsers((prev) => {
               const existing = prev.find((u) => u.name.toLowerCase() === mergedUser.name.toLowerCase());
               if (existing) {
@@ -898,6 +911,11 @@ export default function App() {
         onSwitchToRegister={() => {
           setAuthMode("register");
           setAuthError(null);
+          setActiveSection("register");
+        }}
+        onBack={() => {
+          setActiveSection("home");
+          setAuthError(null);
         }}
         errorMessage={authError}
       />
@@ -911,6 +929,11 @@ export default function App() {
         onSectionChange={(section) => {
           if (section === "admin" && !isAdmin) {
             setActiveSection("home");
+            return;
+          }
+          if (!isAuthenticated && section === "watchlist") {
+            setActiveSection("login");
+            setAuthMode("login");
             return;
           }
           setActiveSection(section);
@@ -953,18 +976,30 @@ export default function App() {
                     />
                   </div>
                   <div className="ml-4">
-                  <UserSwitcher
-                    currentUser={currentUser}
-                    currentUserEmail={currentUserObj?.email}
-                    onSignOut={() => {
-                      // Sign out and return to the login screen
-                      setIsAuthenticated(false);
-                      setAuthMode("login");
-                      setAuthError(null);
-                      setActiveSection("home");
-                      setAuthToken(null);
-                    }}
-                  />
+                    {isAuthenticated ? (
+                      <UserSwitcher
+                        currentUser={currentUser}
+                        currentUserEmail={currentUserObj?.email}
+                        onSignOut={() => {
+                          setIsAuthenticated(false);
+                          setAuthMode("login");
+                          setAuthError(null);
+                          setActiveSection("home");
+                          setAuthToken(null);
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="bg-neutral-900 border-neutral-800 text-white"
+                        onClick={() => {
+                          setActiveSection("login");
+                          setAuthMode("login");
+                        }}
+                      >
+                        Login / Register
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
