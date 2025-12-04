@@ -168,6 +168,10 @@ class UserService:
         users = self.user_repo.load_users() or []
         for it in users:
             if it.get("username").lower() == username.lower():
+                if "token_version" not in it:
+                    it["token_version"] = 0
+                if "registered_at" not in it:
+                    it["registered_at"] = datetime.now(timezone.utc).isoformat()
                 return it
         raise HTTPException(status_code=404, detail="User not found")
 

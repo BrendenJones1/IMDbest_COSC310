@@ -131,6 +131,38 @@ const carouselSlides = [
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+const hashStringToPositiveInt = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash) + 1;
+};
+
+const coerceNumericId = (
+  value: string | number | undefined,
+  fallbackSeed: string
+): number => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = Math.floor(Math.abs(value));
+    return normalized > 0 ? normalized : hashStringToPositiveInt(fallbackSeed);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) {
+      const normalized = Math.floor(Math.abs(numeric));
+      if (normalized > 0) {
+        return normalized;
+      }
+    }
+    return hashStringToPositiveInt(value);
+  }
+
+  return hashStringToPositiveInt(fallbackSeed || `${Math.random()}`);
+};
+
 const mapBackendUser = (backendUser: any): User => {
   const fallbackId =
     backendUser.id ??
@@ -141,6 +173,7 @@ const mapBackendUser = (backendUser: any): User => {
   const joinDate = backendUser.registered_at
     ? backendUser.registered_at.split("T")[0]
     : new Date().toISOString().split("T")[0];
+  const numericId = coerceNumericId(backendUser.id ?? backendUser.backendId, username);
 
   return {
     id: username,
@@ -155,7 +188,22 @@ const mapBackendUser = (backendUser: any): User => {
     flagReason: backendUser.flagReason,
     isAdmin: backendUser.role === "admin",
     backendId,
+    numericId,
   };
+};
+
+const decodeRoleFromToken = (token: string | null) => {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const decoded = JSON.parse(atob(padded));
+    return decoded?.role ?? null;
+  } catch {
+    return null;
+  }
 };
 
 const slugify = (value: string) =>
@@ -206,6 +254,7 @@ interface User {
   flagReason?: string;
   isAdmin: boolean;
   backendId?: string | number;
+  numericId: number;
 }
 
 const mockUsers: User[] = [
@@ -218,6 +267,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: true,
+    numericId: hashStringToPositiveInt("alice"),
   },
   {
     id: "bob",
@@ -228,6 +278,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: false,
+    numericId: hashStringToPositiveInt("bob"),
   },
   {
     id: "charlie",
@@ -239,6 +290,7 @@ const mockUsers: User[] = [
     penalties: 2,
     flagReason: "Spam reviews",
     isAdmin: false,
+    numericId: hashStringToPositiveInt("charlie"),
   },
   {
     id: "demo-admin",
@@ -249,6 +301,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: true,
+    numericId: hashStringToPositiveInt("demo-admin"),
   },
   {
     id: "demo-user",
@@ -259,6 +312,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: false,
+    numericId: hashStringToPositiveInt("demo-user"),
   },
 ];
 
@@ -273,6 +327,13 @@ interface Review {
   rating: number;
   comment: string;
   date: string;
+}
+
+interface FlagReviewPayload {
+  movieId: string;
+  reviewUserId?: string;
+  reviewUserName?: string;
+  reason: string;
 }
 
 export default function App() {
@@ -470,6 +531,72 @@ export default function App() {
     setReviews((prev) => [...prev, newReview]);
   };
 
+  const handleFlagReview = async ({
+    movieId,
+    reviewUserId,
+    reviewUserName,
+    reason,
+  }: FlagReviewPayload) => {
+    if (!currentUserObj) {
+      throw new Error("Please sign in to flag reviews.");
+    }
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      throw new Error("Provide a short reason for the flag.");
+    }
+
+    const normalizedReviewerName = reviewUserName?.toLowerCase();
+    const targetUser =
+      users.find(
+        (u) =>
+          (reviewUserId && u.id === reviewUserId) ||
+          (normalizedReviewerName && u.name.toLowerCase() === normalizedReviewerName)
+      ) || null;
+
+    const reviewerIdentifier = reviewUserId || reviewUserName || "unknown-reviewer";
+    const reviewNumericId = hashStringToPositiveInt(`${movieId}:${reviewerIdentifier}`);
+    const flaggerId = coerceNumericId(currentUserObj.backendId ?? currentUserObj.id, currentUserObj.id);
+    const flaggedUserId = targetUser
+      ? coerceNumericId(targetUser.backendId ?? targetUser.id, targetUser.id)
+      : hashStringToPositiveInt(reviewerIdentifier);
+
+    const response = await fetch(`${API_BASE_URL}/flags`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        review_id: reviewNumericId,
+        flagger_id: flaggerId,
+        flagged_user_id: flaggedUserId,
+        reason: trimmedReason,
+      }),
+    });
+
+    let payload: any = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Unable to submit this flag right now.");
+    }
+
+    if (targetUser) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === targetUser.id ? { ...u, isFlagged: true, flagReason: trimmedReason } : u
+        )
+      );
+    }
+
+    return payload;
+  };
+
   const handleMovieClick = (movie: Movie) => {
     setSelectedMovie(movie);
     setIsDialogOpen(true);
@@ -630,6 +757,7 @@ export default function App() {
               isFlagged: false,
               penalties: 0,
               isAdmin: data.isAdmin,
+              numericId: hashStringToPositiveInt(uniqueId),
             };
             setUsers((prev) => [...prev, newUser]);
             setCurrentUser(data.name);
@@ -666,15 +794,30 @@ export default function App() {
             }
 
             const backendUser = mapBackendUser(payload.user);
+            const tokenRole = decodeRoleFromToken(payload.token);
+            const fallbackUser = usersRef.current.find(
+              (u) =>
+                u.email.toLowerCase() === backendUser.email.toLowerCase() ||
+                u.name.toLowerCase() === backendUser.name.toLowerCase()
+            );
+            const mergedUser: User = {
+              ...fallbackUser,
+              ...backendUser,
+              isAdmin:
+                tokenRole === "admin" ||
+                fallbackUser?.isAdmin ||
+                backendUser.isAdmin,
+            };
+
             setAuthToken(payload.token);
-            setCurrentUser(backendUser.name);
+            setCurrentUser(mergedUser.name);
             setIsAuthenticated(true);
             setUsers((prev) => {
-              const existing = prev.find((u) => u.name.toLowerCase() === backendUser.name.toLowerCase());
+              const existing = prev.find((u) => u.name.toLowerCase() === mergedUser.name.toLowerCase());
               if (existing) {
-                return prev.map((u) => (u.name.toLowerCase() === backendUser.name.toLowerCase() ? backendUser : u));
+                return prev.map((u) => (u.name.toLowerCase() === mergedUser.name.toLowerCase() ? mergedUser : u));
               }
-              return [...prev, backendUser];
+              return [...prev, mergedUser];
             });
           } catch (error) {
             const message = error instanceof Error ? error.message : "Login failed. Please try again.";
@@ -694,7 +837,14 @@ export default function App() {
     <div className="flex h-screen bg-neutral-950 text-white">
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={(section) => {
+          if (section === "admin" && !isAdmin) {
+            setActiveSection("home");
+            return;
+          }
+          setActiveSection(section);
+        }}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 overflow-auto">
@@ -896,6 +1046,7 @@ export default function App() {
         reviews={reviews}
         onAddReview={handleAddReview}
         currentUser={currentUser}
+        onFlagReview={handleFlagReview}
       />
     </div>
   );

@@ -7,7 +7,11 @@ from fastapi import HTTPException, status
 from threading import RLock  # NEW
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+
+try:  # Prefer legacy module path used by tests if available
+    from repositories.movie_repo import MovieRepository, ReviewRepository  # type: ignore
+except ModuleNotFoundError:  # Fallback to the canonical backend package when running the app
+    from backend.repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 # NEW: lock to protect read-modify-write review+metadata sequences
@@ -21,17 +25,18 @@ class ReviewService:
     def _parse_datetime(self, value):
         # Accept ISO strings, return datetime; fall back to current time if invalid
         if value is None:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
         if isinstance(value, datetime):
-            return value
+            return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
         try:
             # fromisoformat handles most formats except 'Z' suffix; handle that
             text = str(value)
             if text.endswith("Z"):
                 text = text[:-1]
-            return datetime.fromisoformat(text)
+            parsed = datetime.fromisoformat(text)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
         except Exception:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
 
     def _load_usernames(self) -> Dict[str, str]:
         """
@@ -109,7 +114,7 @@ class ReviewService:
             review_data = ReviewRepository.get_review_data(movie_id)
 
             current = review_data["reviews"].get(user_id)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             if current:
                 old_rating = current["rating"]
