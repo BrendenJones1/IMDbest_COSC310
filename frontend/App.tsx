@@ -800,6 +800,9 @@ export default function App() {
       ? "My Watchlist"
       : activeSection.toUpperCase();
 
+  const showDiscoverySections =
+    activeSection === "home" && searchQuery === "" && filterGenre === "all";
+
   if (!isAuthenticated) {
     if (authMode === "register") {
       return (
@@ -1020,7 +1023,7 @@ export default function App() {
                 <div className="mb-6 text-sm text-neutral-400">Loading movies from backend...</div>
               )}
 
-              {activeSection === "home" && (
+              {showDiscoverySections && (
                 <>
                   <div className="mb-8">
                     <MovieCarousel slides={carouselSlides} />
