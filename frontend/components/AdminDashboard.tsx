@@ -57,26 +57,26 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
   return (
     <div className="space-y-6 mb-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-neutral-900 border-neutral-800">
+        <Card className="bg-neutral-900 border-neutral-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Total Users</CardTitle>
+            <CardTitle className="text-sm text-white">Total Users</CardTitle>
             <Users className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{users.length}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white">{users.length}</div>
+            <p className="text-xs text-neutral-100 mt-1">
               {users.filter((u) => !u.isFlagged).length} active
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-neutral-900 border-neutral-800">
+        <Card className="bg-neutral-900 border-neutral-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Flagged Users</CardTitle>
+            <CardTitle className="text-sm text-white">Flagged Users</CardTitle>
             <Flag className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{flaggedUsers.length}</div>
+            <div className="text-2xl text-white">{flaggedUsers.length}</div>
             {flaggedUsers.length > 0 && (
               <p className="text-xs text-red-400 mt-1">
                 Requires attention
@@ -85,14 +85,14 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
           </CardContent>
         </Card>
 
-        <Card className="bg-neutral-900 border-neutral-800">
+        <Card className="bg-neutral-900 border-neutral-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Active Penalties</CardTitle>
+            <CardTitle className="text-sm text-white">Active Penalties</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{totalPenalties}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white">{totalPenalties}</div>
+            <p className="text-xs text-neutral-100 mt-1">
               {usersWithPenalties.length} users affected
             </p>
           </CardContent>
@@ -101,9 +101,9 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Most Active Users */}
-        <Card className="bg-neutral-900 border-neutral-800">
+        <Card className="bg-neutral-900 border-neutral-800 text-white">
           <CardHeader>
-            <CardTitle className="text-sm">Most Active Users</CardTitle>
+            <CardTitle className="text-sm text-white">Most Active Users</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -122,14 +122,14 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-neutral-400">
+                      <div className="flex items-center gap-2 text-xs text-neutral-200">
                         <span>{reviewCount} reviews</span>
                         <span>•</span>
                         <span>{watchlistCount} saved</span>
                       </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="border-neutral-700">
+                  <Badge variant="outline" className="border-neutral-500 text-white">
                     {totalActivity}
                   </Badge>
                 </div>
@@ -139,9 +139,9 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
         </Card>
 
         {/* Most Reviewed Movies */}
-        <Card className="bg-neutral-900 border-neutral-800">
+        <Card className="bg-neutral-900 border-neutral-800 text-white">
           <CardHeader>
-            <CardTitle className="text-sm">Most Reviewed Movies</CardTitle>
+            <CardTitle className="text-sm text-white">Most Reviewed Movies</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -153,7 +153,7 @@ export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDash
                   <div key={movie.id}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm truncate flex-1">{movie.title}</span>
-                      <Badge variant="outline" className="border-neutral-700 ml-2">
+                      <Badge variant="outline" className="border-neutral-500 text-white ml-2">
                         {reviewCount}
                       </Badge>
                     </div>

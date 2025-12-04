@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Sidebar } from "./components/Sidebar";
@@ -131,6 +131,81 @@ const carouselSlides = [
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+const hashStringToPositiveInt = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash) + 1;
+};
+
+const coerceNumericId = (
+  value: string | number | undefined,
+  fallbackSeed: string
+): number => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = Math.floor(Math.abs(value));
+    return normalized > 0 ? normalized : hashStringToPositiveInt(fallbackSeed);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) {
+      const normalized = Math.floor(Math.abs(numeric));
+      if (normalized > 0) {
+        return normalized;
+      }
+    }
+    return hashStringToPositiveInt(value);
+  }
+
+  return hashStringToPositiveInt(fallbackSeed || `${Math.random()}`);
+};
+
+const mapBackendUser = (backendUser: any): User => {
+  const fallbackId =
+    backendUser.id ??
+    backendUser.backendId ??
+    Math.random().toString(36).slice(2);
+  const backendId = fallbackId;
+  const username = backendUser.username || backendUser.email || `user-${backendId}`;
+  const joinDate = backendUser.registered_at
+    ? backendUser.registered_at.split("T")[0]
+    : new Date().toISOString().split("T")[0];
+  const numericId = coerceNumericId(backendUser.id ?? backendUser.backendId, username);
+
+  return {
+    id: username,
+    name: username,
+    email: backendUser.email || "",
+    password: "",
+    joinDate,
+    isFlagged: Boolean(backendUser.isFlagged ?? backendUser.is_flagged ?? false),
+    penalties: Array.isArray(backendUser.penalties)
+      ? backendUser.penalties.length
+      : Number(backendUser.penalties ?? 0),
+    flagReason: backendUser.flagReason,
+    isAdmin: backendUser.role === "admin",
+    backendId,
+    numericId,
+  };
+};
+
+const decodeRoleFromToken = (token: string | null) => {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const decoded = JSON.parse(atob(padded));
+    return decoded?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -206,6 +281,8 @@ interface User {
   penalties: number;
   flagReason?: string;
   isAdmin: boolean;
+  backendId?: string | number;
+  numericId: number;
 }
 
 const mockUsers: User[] = [
@@ -218,6 +295,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: true,
+    numericId: hashStringToPositiveInt("alice"),
   },
   {
     id: "bob",
@@ -228,6 +306,7 @@ const mockUsers: User[] = [
     isFlagged: false,
     penalties: 0,
     isAdmin: false,
+    numericId: hashStringToPositiveInt("bob"),
   },
   {
     id: "charlie",
@@ -239,6 +318,29 @@ const mockUsers: User[] = [
     penalties: 2,
     flagReason: "Spam reviews",
     isAdmin: false,
+    numericId: hashStringToPositiveInt("charlie"),
+  },
+  {
+    id: "demo-admin",
+    name: "admin@demo.com",
+    email: "admin@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: true,
+    numericId: hashStringToPositiveInt("demo-admin"),
+  },
+  {
+    id: "demo-user",
+    name: "user@demo.com",
+    email: "user@demo.com",
+    password: "password",
+    joinDate: "2024-04-01",
+    isFlagged: false,
+    penalties: 0,
+    isAdmin: false,
+    numericId: hashStringToPositiveInt("demo-user"),
   },
 ];
 
@@ -255,10 +357,18 @@ interface Review {
   date: string;
 }
 
+interface FlagReviewPayload {
+  movieId: string;
+  reviewUserId?: string;
+  reviewUserName?: string;
+  reason: string;
+}
+
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState("Alice");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
@@ -270,6 +380,7 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const usersRef = useRef<User[]>(mockUsers);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
     bob: ["urban-legends", "love-in-paris"],
@@ -350,9 +461,77 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch users: ${response.status}`);
+        }
+        const payload = await response.json();
+        const mapped = Array.isArray(payload) ? payload.map(mapBackendUser) : [];
+        if (mapped.length > 0) {
+          setUsers(mapped);
+        }
+      } catch (error) {
+        console.warn("Using local users fallback. Unable to load backend users.", error);
+      }
+    };
+
+    fetchUsers();
+
+    return () => controller.abort();
+  }, []);
+
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+
+  const resolveUsernameForLogin = async (identifier: string) => {
+    const lowered = identifier.toLowerCase();
+    const localMatch = usersRef.current.find(
+      (u) =>
+        u.email.toLowerCase() === lowered ||
+        u.name.toLowerCase() === lowered
+    );
+    if (localMatch) {
+      return localMatch.name;
+    }
+
+    if (!identifier.includes("@")) {
+      return identifier;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/`);
+      if (!response.ok) {
+        return identifier;
+      }
+      const payload = await response.json();
+      if (Array.isArray(payload)) {
+        const fromBackend = payload.find(
+          (user: any) =>
+            typeof user.email === "string" &&
+            user.email.toLowerCase() === lowered
+        );
+        if (fromBackend?.username) {
+          return fromBackend.username;
+        }
+      }
+    } catch {
+      // ignore fetch errors and fall back to identifier
+    }
+
+    return identifier;
+  };
 
   const handleWatchlistToggle = (movieId: string) => {
     setWatchlists((prev) => {
@@ -378,6 +557,72 @@ export default function App() {
       date: new Date().toISOString().split("T")[0],
     };
     setReviews((prev) => [...prev, newReview]);
+  };
+
+  const handleFlagReview = async ({
+    movieId,
+    reviewUserId,
+    reviewUserName,
+    reason,
+  }: FlagReviewPayload) => {
+    if (!currentUserObj) {
+      throw new Error("Please sign in to flag reviews.");
+    }
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      throw new Error("Provide a short reason for the flag.");
+    }
+
+    const normalizedReviewerName = reviewUserName?.toLowerCase();
+    const targetUser =
+      users.find(
+        (u) =>
+          (reviewUserId && u.id === reviewUserId) ||
+          (normalizedReviewerName && u.name.toLowerCase() === normalizedReviewerName)
+      ) || null;
+
+    const reviewerIdentifier = reviewUserId || reviewUserName || "unknown-reviewer";
+    const reviewNumericId = hashStringToPositiveInt(`${movieId}:${reviewerIdentifier}`);
+    const flaggerId = coerceNumericId(currentUserObj.backendId ?? currentUserObj.id, currentUserObj.id);
+    const flaggedUserId = targetUser
+      ? coerceNumericId(targetUser.backendId ?? targetUser.id, targetUser.id)
+      : hashStringToPositiveInt(reviewerIdentifier);
+
+    const response = await fetch(`${API_BASE_URL}/flags`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        review_id: reviewNumericId,
+        flagger_id: flaggerId,
+        flagged_user_id: flaggedUserId,
+        reason: trimmedReason,
+      }),
+    });
+
+    let payload: any = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Unable to submit this flag right now.");
+    }
+
+    if (targetUser) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === targetUser.id ? { ...u, isFlagged: true, flagReason: trimmedReason } : u
+        )
+      );
+    }
+
+    return payload;
   };
 
   const handleMovieClick = (movie: Movie) => {
@@ -540,6 +785,7 @@ export default function App() {
               isFlagged: false,
               penalties: 0,
               isAdmin: data.isAdmin,
+              numericId: hashStringToPositiveInt(uniqueId),
             };
             setUsers((prev) => [...prev, newUser]);
             setCurrentUser(data.name);
@@ -557,19 +803,54 @@ export default function App() {
 
     return (
       <LoginScreen
-        onLogin={({ email, password }) => {
+        onLogin={async ({ email, password }) => {
           setAuthError(null);
-          const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-          if (!user) {
-            setAuthError("No account found with that email.");
-            return;
+          const identifier = email.trim();
+
+          try {
+            const usernameForLogin = await resolveUsernameForLogin(identifier);
+            const params = new URLSearchParams({
+              username: usernameForLogin,
+              password,
+            });
+            const response = await fetch(`${API_BASE_URL}/users/login?${params.toString()}`, {
+              method: "POST",
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.detail || "Unable to log in. Please check your credentials.");
+            }
+
+            const backendUser = mapBackendUser(payload.user);
+            const tokenRole = decodeRoleFromToken(payload.token);
+            const fallbackUser = usersRef.current.find(
+              (u) =>
+                u.email.toLowerCase() === backendUser.email.toLowerCase() ||
+                u.name.toLowerCase() === backendUser.name.toLowerCase()
+            );
+            const mergedUser: User = {
+              ...fallbackUser,
+              ...backendUser,
+              isAdmin:
+                tokenRole === "admin" ||
+                fallbackUser?.isAdmin ||
+                backendUser.isAdmin,
+            };
+
+            setAuthToken(payload.token);
+            setCurrentUser(mergedUser.name);
+            setIsAuthenticated(true);
+            setUsers((prev) => {
+              const existing = prev.find((u) => u.name.toLowerCase() === mergedUser.name.toLowerCase());
+              if (existing) {
+                return prev.map((u) => (u.name.toLowerCase() === mergedUser.name.toLowerCase() ? mergedUser : u));
+              }
+              return [...prev, mergedUser];
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Login failed. Please try again.";
+            setAuthError(message);
           }
-          if (user.password !== password) {
-            setAuthError("Incorrect password. Please try again.");
-            return;
-          }
-          setCurrentUser(user.name);
-          setIsAuthenticated(true);
         }}
         onSwitchToRegister={() => {
           setAuthMode("register");
@@ -584,7 +865,14 @@ export default function App() {
     <div className="flex h-screen bg-neutral-950 text-white">
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={(section) => {
+          if (section === "admin" && !isAdmin) {
+            setActiveSection("home");
+            return;
+          }
+          setActiveSection(section);
+        }}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 overflow-auto">
@@ -631,6 +919,7 @@ export default function App() {
                       setAuthMode("login");
                       setAuthError(null);
                       setActiveSection("home");
+                      setAuthToken(null);
                     }}
                   />
                   </div>
@@ -785,6 +1074,7 @@ export default function App() {
         reviews={reviews}
         onAddReview={handleAddReview}
         currentUser={currentUser}
+        onFlagReview={handleFlagReview}
       />
     </div>
   );
