@@ -7,6 +7,7 @@ import { Label } from "./ui/label";
 interface LoginScreenProps {
   onLogin?: (data: { email: string; password: string }) => void;
   onSwitchToRegister?: () => void;
+  onBack?: () => void;
   errorMessage?: string | null;
 }
 
@@ -15,7 +16,7 @@ const DEMO_ACCOUNTS = [
   { label: "User demo", email: "user@demo.com", password: "password" },
 ];
 
-export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
+export function LoginScreen({ onLogin, onSwitchToRegister, onBack, errorMessage }: LoginScreenProps) {
   const [selectedDemo, setSelectedDemo] = useState(DEMO_ACCOUNTS[0].email);
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
@@ -59,6 +60,17 @@ export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: Login
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        <div className="mb-4 flex justify-start">
+          {onBack && (
+            <Button
+              variant="ghost"
+              className="text-neutral-300 hover:text-white"
+              onClick={onBack}
+            >
+              ← Back to Home
+            </Button>
+          )}
+        </div>
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center">
             <Film className="h-6 w-6 text-white" />
