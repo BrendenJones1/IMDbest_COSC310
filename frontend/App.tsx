@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, Star } from "lucide-react";
 import { Input } from "./components/ui/input";
+import { Textarea } from "./components/ui/textarea";
 import { Sidebar } from "./components/Sidebar";
 import { MovieCard, Movie } from "./components/MovieCard";
 import { MovieCarousel } from "./components/MovieCarousel";
-import { MovieDialog } from "./components/MovieDialog";
 import { AdminPanel } from "./components/AdminPanel";
 import { ApiDocs } from "./components/ApiDocs";
 import { UserSwitcher } from "./components/UserSwitcher";
@@ -192,6 +192,94 @@ const mapBackendUser = (backendUser: any): User => {
   };
 };
 
+const backendSortKeyFromUI = (value: "title" | "rating" | "year") => {
+  if (value === "rating") return "user_rating";
+  if (value === "year") return "release_date";
+  return "title";
+};
+
+const toNumber = (value: any, fallback = 0): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const parseCount = (value: any): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase().replace(/,/g, "");
+    const match = trimmed.match(/^([\d.]+)\s*([km])?$/);
+    if (match) {
+      const num = parseFloat(match[1]);
+      if (!Number.isFinite(num)) return 0;
+      const suffix = match[2];
+      if (suffix === "k") return Math.round(num * 1_000);
+      if (suffix === "m") return Math.round(num * 1_000_000);
+      return Math.round(num);
+    }
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : 0;
+  }
+  return 0;
+};
+
+const parseDurationMinutes = (raw: any): number => {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim().toLowerCase();
+    const hm = trimmed.match(/(?:(\d+)\s*h(?:ours?)?\s*)?(?:(\d+)\s*m(?:in)?(?:utes?)?)?/);
+    if (hm && (hm[1] || hm[2])) {
+      const h = Number(hm[1] || 0);
+      const m = Number(hm[2] || 0);
+      if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m;
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return 0;
+};
+
+const TRAILER_FALLBACKS: Record<string, string> = {
+  "forrest gump": "XHhAG-YLdk8",
+  "the avengers": "eOrNdBpGMv8",
+  "avengers endgame": "TcMBFSGVi1c",
+  "spiderman no way home": "JfVOs4VSpmA",
+  "the dark knight": "EXeTwQWrcwY",
+  "joker": "t433PEQGErc",
+  "pulp fiction": "s7EdQ4FqbhY",
+  "thor ragnarok": "ue80QwXMRHg",
+  "morbius": "oZ6iiRrz1SY",
+  "john wick chapter 3  parabellum": "M7XM597XO94",
+  "return to silent hill": "5gcn9bWiwyo",
+};
+
+const formatDuration = (raw: any) => {
+  const minutes = parseDurationMinutes(raw);
+  if (!minutes || minutes <= 0) return "N/A";
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (!hrs) return `${mins}m`;
+  return `${hrs}h${mins ? ` ${mins}m` : ""}`;
+};
+
+const computeTrailerUrl = (meta: Record<string, any> | null, title: string) => {
+  const explicit =
+    meta?.trailerUrl ||
+    meta?.trailer ||
+    meta?.videoUrl ||
+    meta?.trailerURL ||
+    meta?.trailer_url ||
+    "";
+  if (explicit) return explicit;
+
+  const key = title.trim().toLowerCase();
+  if (TRAILER_FALLBACKS[key]) {
+    return `https://www.youtube.com/embed/${TRAILER_FALLBACKS[key]}`;
+  }
+
+  const query = encodeURIComponent(`${title} trailer`);
+  return `https://www.youtube.com/embed?listType=search&list=${query}`;
+};
+
 const decodeRoleFromToken = (token: string | null) => {
   if (!token) return null;
   try {
@@ -254,20 +342,43 @@ const mapBackendMovie = (summary: any, metadata: Record<string, any>): Movie => 
       ? metadata.movieGenres
       : ["Uncategorized"];
 
+  const durationMinutes = parseDurationMinutes(
+    metadata?.duration ||
+      metadata?.runtime ||
+      metadata?.movieDuration ||
+      metadata?.movieRuntime
+  );
+
+  const userReviews = parseCount(
+    metadata?.totalUserReviews ??
+      metadata?.userRatingCount ??
+      metadata?.totalRatingCount
+  );
+
+  const rating = toNumber(
+    metadata?.movieIMDbRating ??
+      metadata?.userRatingAverage ??
+      summary?.userRatingAverage ??
+      summary?.imdbRating,
+    0
+  );
+
   const base: Movie = {
     id: summary?.id || slugify(title),
     title,
     year: normalizeYear(metadata?.datePublished || summary?.releaseDate),
-    rating: Number(summary?.userRatingAverage ?? summary?.imdbRating ?? metadata?.movieIMDbRating ?? 0) || 0,
+    rating,
     poster: metadata?.poster || buildPosterUrl(title),
     genre,
     description: metadata?.description || "Description not available.",
     ageRating: metadata?.ageRating || "NR",
-    // in case backend ever sends it
+    durationMinutes: durationMinutes || undefined,
+    userReviews: userReviews || undefined,
+    ratingCount: parseCount(metadata?.totalRatingCount ?? metadata?.userRatingCount),
+    imdbRating: toNumber(metadata?.movieIMDbRating ?? summary?.imdbRating, 0),
     trailerYoutubeId: metadata?.trailerYoutubeId || summary?.trailerYoutubeId,
   };
 
-  // decorate with hardcoded trailer
   return setMovieTrailer(base);
 };
 
@@ -372,10 +483,20 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState("Alice");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<Movie[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Movie[]>([]);
+  const [searchResultsTotal, setSearchResultsTotal] = useState(0);
+  const [searchSortBy, setSearchSortBy] = useState<"title" | "rating" | "year">("title");
+  const [searchSortOrder, setSearchSortOrder] = useState<"asc" | "desc">("asc");
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedMovieMeta, setSelectedMovieMeta] = useState<Record<string, any> | null>(null);
   const [sortBy, setSortBy] = useState<"title" | "rating" | "year">("title");
   const [filterGenre, setFilterGenre] = useState<string>("all");
+  const [detailReviewInput, setDetailReviewInput] = useState({ rating: 5, comment: "" });
   const [movies, setMovies] = useState<Movie[]>(initialMovies);
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
@@ -466,6 +587,12 @@ export default function App() {
   }, [users]);
 
   useEffect(() => {
+    if (selectedMovie) {
+      setDetailReviewInput({ rating: 5, comment: "" });
+    }
+  }, [selectedMovie?.id]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     const fetchUsers = async () => {
@@ -494,6 +621,152 @@ export default function App() {
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+
+  const fetchSearchResults = useCallback(
+    async (
+      term: string,
+      options?: { sortBy?: "title" | "rating" | "year"; sortOrder?: "asc" | "desc"; limit?: number }
+    ) => {
+      const normalized = term.trim();
+      if (!normalized) {
+        setSearchResults([]);
+        setSearchResultsTotal(0);
+        setSearchError(null);
+        return;
+      }
+      setIsSearching(true);
+      setSearchError(null);
+      const sortByValue = options?.sortBy ?? searchSortBy;
+      const sortOrderValue = options?.sortOrder ?? searchSortOrder;
+      setSearchSortBy(sortByValue);
+      setSearchSortOrder(sortOrderValue);
+      try {
+        const params = new URLSearchParams();
+        params.set("q", normalized);
+        params.set("limit", String(options?.limit ?? 50));
+        params.set("sort_by", backendSortKeyFromUI(sortByValue));
+        params.set("sort_order", sortOrderValue);
+        const res = await fetch(`${API_BASE_URL}/search?${params.toString()}`);
+        if (!res.ok) {
+          throw new Error(`Search failed (${res.status})`);
+        }
+        const payload = await res.json();
+        const summaries = Array.isArray(payload?.items) ? payload.items : [];
+        const metadata = await Promise.all(
+          summaries.map(async (summary: any) => {
+            try {
+              const metaRes = await fetch(`${API_BASE_URL}/movies/${summary.id}/metadata`);
+              if (!metaRes.ok) return {};
+              return await metaRes.json();
+            } catch {
+              return {};
+            }
+          })
+        );
+        const combined = summaries.map((summary: any, idx: number) =>
+          mapBackendMovie(summary, metadata[idx] || {})
+        );
+        setSearchResults(combined);
+        setSearchResultsTotal(Number(payload?.total ?? combined.length));
+        setActiveSection("search");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unable to search right now. Please try again.";
+        setSearchError(message);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [API_BASE_URL, searchSortBy, searchSortOrder]
+  );
+
+  const fetchSearchSuggestions = useCallback(
+    async (term: string, signal?: AbortSignal) => {
+      const normalized = term.trim();
+      if (!normalized) {
+        setSearchSuggestions([]);
+        return;
+      }
+      setIsSuggestionsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("q", normalized);
+        params.set("limit", "6");
+        params.set("sort_by", "title");
+        const res = await fetch(`${API_BASE_URL}/search?${params.toString()}`, { signal });
+        if (!res.ok) throw new Error("Failed to load suggestions");
+        const payload = await res.json();
+        const summaries = Array.isArray(payload?.items) ? payload.items : [];
+        const metadata = await Promise.all(
+          summaries.map(async (summary: any) => {
+            try {
+              const metaRes = await fetch(`${API_BASE_URL}/movies/${summary.id}/metadata`, {
+                signal,
+              });
+              if (!metaRes.ok) return {};
+              return await metaRes.json();
+            } catch {
+              return {};
+            }
+          })
+        );
+        const combined = summaries.map((summary: any, idx: number) =>
+          mapBackendMovie(summary, metadata[idx] || {})
+        );
+        setSearchSuggestions(combined);
+      } catch {
+        setSearchSuggestions([]);
+      } finally {
+        setIsSuggestionsLoading(false);
+      }
+    },
+    [API_BASE_URL]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!searchQuery.trim()) {
+      setSearchSuggestions([]);
+      setIsSuggestionsOpen(false);
+      return;
+    }
+    setIsSuggestionsOpen(true);
+    const t = setTimeout(() => {
+      fetchSearchSuggestions(searchQuery, controller.signal);
+    }, 250);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [searchQuery, fetchSearchSuggestions]);
+
+  useEffect(() => {
+    if (activeSection !== "movie-detail" || !selectedMovie) {
+      setSelectedMovieMeta(null);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/movies/${selectedMovie.id}/metadata`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("Failed to load movie details");
+        const meta = await res.json();
+        setSelectedMovieMeta(meta);
+      } catch {
+        setSelectedMovieMeta(null);
+      }
+    })();
+    return () => controller.abort();
+  }, [activeSection, selectedMovie?.id]);
+
+  const handleSearchSubmit = async (term?: string) => {
+    const query = (term ?? searchQuery).trim();
+    if (!query) return;
+    await fetchSearchResults(query);
+    setIsSuggestionsOpen(false);
+  };
 
   const resolveUsernameForLogin = async (identifier: string) => {
     const lowered = identifier.toLowerCase();
@@ -534,6 +807,11 @@ export default function App() {
   };
 
   const handleWatchlistToggle = (movieId: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      return;
+    }
     setWatchlists((prev) => {
       const userList = prev[currentUserId] || [];
       const isInList = userList.includes(movieId);
@@ -548,6 +826,11 @@ export default function App() {
   };
 
   const handleAddReview = (movieId: string, rating: number, comment: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      return;
+    }
     const newReview: Review = {
       id: movieId,
       userId: currentUserId,
@@ -557,6 +840,12 @@ export default function App() {
       date: new Date().toISOString().split("T")[0],
     };
     setReviews((prev) => [...prev, newReview]);
+  };
+
+  const handleSubmitDetailReview = () => {
+    if (!selectedMovie || !detailReviewInput.comment.trim()) return;
+    handleAddReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment.trim());
+    setDetailReviewInput({ rating: 5, comment: "" });
   };
 
   const handleFlagReview = async ({
@@ -627,7 +916,8 @@ export default function App() {
 
   const handleMovieClick = (movie: Movie) => {
     setSelectedMovie(movie);
-    setIsDialogOpen(true);
+    setIsSuggestionsOpen(false);
+    setActiveSection("movie-detail");
   };
 
   const handleDeleteMovie = (movieId: string) => {
@@ -793,6 +1083,46 @@ export default function App() {
       return 0;
     });
 
+  const movieReviews = useMemo(
+    () => (selectedMovie ? reviews.filter((r) => r.id === selectedMovie.id) : []),
+    [reviews, selectedMovie?.id]
+  );
+
+  const detailReleaseDate =
+    selectedMovieMeta?.datePublished ||
+    selectedMovie?.year ||
+    selectedMovieMeta?.releaseDate ||
+    "N/A";
+
+  const detailDurationRaw =
+    parseDurationMinutes(
+      selectedMovieMeta?.duration ||
+        selectedMovieMeta?.runtime ||
+        selectedMovieMeta?.movieDuration ||
+        selectedMovieMeta?.movieRuntime
+    ) || 0;
+  const detailDuration =
+    detailDurationRaw > 0
+      ? formatDuration(detailDurationRaw)
+      : selectedMovieMeta && selectedMovieMeta.duration
+      ? formatDuration(selectedMovieMeta.duration)
+      : "N/A";
+
+  const detailRating =
+    toNumber(selectedMovieMeta?.movieIMDbRating, 0) ||
+    toNumber(selectedMovieMeta?.userRatingAverage, 0) ||
+    (selectedMovieMeta?.userRatingTotal && selectedMovieMeta?.userRatingCount
+      ? toNumber(selectedMovieMeta.userRatingTotal / selectedMovieMeta.userRatingCount, 0)
+      : 0) ||
+    toNumber(selectedMovie?.rating, 0);
+
+  const detailUserReviews =
+    parseCount(selectedMovieMeta?.totalUserReviews) ||
+    parseCount(selectedMovieMeta?.userRatingCount) ||
+    parseCount(selectedMovieMeta?.totalRatingCount) ||
+    parseCount(selectedMovie?.ratingCount);
+  const trailerUrl = selectedMovie ? computeTrailerUrl(selectedMovieMeta, selectedMovie.title) : "";
+
   const displayTitle =
     activeSection === "home"
       ? "Latest Movies"
@@ -800,10 +1130,7 @@ export default function App() {
       ? "My Watchlist"
       : activeSection.toUpperCase();
 
-  const showDiscoverySections =
-    activeSection === "home" && searchQuery === "" && filterGenre === "all";
-
-  if (!isAuthenticated) {
+  if (!isAuthenticated && (activeSection === "login" || activeSection === "register")) {
     if (authMode === "register") {
       return (
         <RegisterScreen
@@ -837,10 +1164,12 @@ export default function App() {
             setCurrentUser(data.name);
             setIsAuthenticated(true);
             setAuthMode("login");
+            setActiveSection("home");
           }}
           onSwitchToLogin={() => {
             setAuthMode("login");
             setAuthError(null);
+            setActiveSection("login");
           }}
           errorMessage={authError}
         />
@@ -886,6 +1215,7 @@ export default function App() {
             setAuthToken(payload.token);
             setCurrentUser(mergedUser.name);
             setIsAuthenticated(true);
+            setActiveSection("home");
             setUsers((prev) => {
               const existing = prev.find((u) => u.name.toLowerCase() === mergedUser.name.toLowerCase());
               if (existing) {
@@ -901,6 +1231,11 @@ export default function App() {
         onSwitchToRegister={() => {
           setAuthMode("register");
           setAuthError(null);
+          setActiveSection("register");
+        }}
+        onBack={() => {
+          setActiveSection("home");
+          setAuthError(null);
         }}
         errorMessage={authError}
       />
@@ -914,6 +1249,11 @@ export default function App() {
         onSectionChange={(section) => {
           if (section === "admin" && !isAdmin) {
             setActiveSection("home");
+            return;
+          }
+          if (!isAuthenticated && section === "watchlist") {
+            setActiveSection("login");
+            setAuthMode("login");
             return;
           }
           setActiveSection(section);
@@ -939,6 +1279,202 @@ export default function App() {
               onAddPenalty={handleAddPenalty}
               onRemovePenalty={handleRemovePenalty}
             />
+          ) : activeSection === "movie-detail" && selectedMovie ? (
+            <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-4xl font-semibold mb-2">{selectedMovie.title}</h1>
+                  <div className="text-neutral-400">
+                    <span className="mr-4">Release: {detailReleaseDate}</span>
+                    <span>Duration: {detailDuration}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-neutral-400 text-sm">User Rating</p>
+                  <p className="text-3xl text-yellow-400 font-semibold">{detailRating.toFixed(1)}</p>
+                  <p className="text-neutral-400 text-sm mt-1">
+                    User Reviews: {detailUserReviews > 0 ? detailUserReviews.toLocaleString() : "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4 items-start">
+                <div className="w-full md:w-[38%]">
+                  <div className="overflow-hidden h-[400px] md:h-[460px] bg-black">
+                    <img
+                      src={selectedMovie.poster}
+                      alt={selectedMovie.title}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+                <div className="w-full md:flex-1">
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden h-[400px] md:h-[460px]">
+                    {trailerUrl ? (
+                      <iframe
+                        src={trailerUrl}
+                        title={`${selectedMovie.title} trailer`}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-neutral-500">
+                        Trailer not available
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="w-full">
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => handleWatchlistToggle(selectedMovie.id)}
+                >
+                  {currentWatchlist.includes(selectedMovie.id) ? "Remove from Watchlist" : "Add to Watchlist"}
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold">Overview</h2>
+                <p className="text-neutral-300 leading-relaxed">
+                  {selectedMovie.description || "No description available."}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Reviews</h2>
+                  <span className="text-neutral-400 text-sm">{movieReviews.length} reviews</span>
+                </div>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span>Your rating:</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() => setDetailReviewInput((prev) => ({ ...prev, rating }))}
+                          className={`w-9 h-9 rounded ${
+                            rating <= detailReviewInput.rating
+                              ? "bg-yellow-500 text-black"
+                              : "bg-neutral-800 text-neutral-400"
+                          }`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Textarea
+                    value={detailReviewInput.comment}
+                    onChange={(e) => setDetailReviewInput((prev) => ({ ...prev, comment: e.target.value }))}
+                    placeholder="Share your thoughts..."
+                    className="bg-neutral-950 border-neutral-800"
+                  />
+                  <Button onClick={handleSubmitDetailReview}>Submit Review</Button>
+                </div>
+
+                <div className="space-y-3">
+                  {movieReviews.length === 0 && (
+                    <div className="text-neutral-500 text-sm">No reviews yet.</div>
+                  )}
+                  {movieReviews.map((review, index) => (
+                    <div key={`${review.userId}-${index}`} className="border border-neutral-800 rounded-lg p-4 bg-neutral-900">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm">
+                            {review.userName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm">{review.userName}</p>
+                            <p className="text-xs text-neutral-500">{review.date}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-yellow-400">
+                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                          <span className="font-semibold">{review.rating}/10</span>
+                        </div>
+                      </div>
+                      <p className="text-neutral-300">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : activeSection === "search" ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl mb-1">Search results for “{searchQuery.trim() || "…"}”</h2>
+                  <p className="text-neutral-400">
+                    {isSearching
+                      ? "Searching..."
+                      : `${searchResultsTotal} result${searchResultsTotal === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white gap-2">
+                        Sort: {searchSortBy === "title" ? "Title" : searchSortBy === "rating" ? "User Rating" : "Year"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
+                      <DropdownMenuItem onClick={() => fetchSearchResults(searchQuery, { sortBy: "title" })}>
+                        Title
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fetchSearchResults(searchQuery, { sortBy: "rating" })}>
+                        User Rating
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fetchSearchResults(searchQuery, { sortBy: "year" })}>
+                        Release Year
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant="outline"
+                    className="bg-neutral-900 border-neutral-800 text-white"
+                    onClick={() => {
+                      const next = searchSortOrder === "asc" ? "desc" : "asc";
+                      fetchSearchResults(searchQuery, { sortOrder: next });
+                    }}
+                  >
+                    Order: {searchSortOrder === "asc" ? "Asc" : "Desc"}
+                  </Button>
+                </div>
+              </div>
+
+              {searchError && (
+                <div className="rounded border border-red-800 bg-red-900/30 px-4 py-3 text-red-200">
+                  {searchError}
+                </div>
+              )}
+
+              {isSearching && searchResults.length === 0 && (
+                <div className="text-neutral-400">Loading search results...</div>
+              )}
+
+              {!isSearching && searchResults.length === 0 && !searchError && (
+                <div className="text-neutral-400">No movies found. Try a different title.</div>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  {searchResults.map((movie) => (
+                    <MovieCard
+                      key={movie.id}
+                      movie={movie}
+                      isInWatchlist={currentWatchlist.includes(movie.id)}
+                      onWatchlistToggle={handleWatchlistToggle}
+                      onMovieClick={handleMovieClick}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : activeSection === "docs" ? (
             <ApiDocs />
           ) : (
@@ -951,65 +1487,76 @@ export default function App() {
                       type="text"
                       placeholder="Quick search..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSuggestionsOpen(Boolean(searchQuery.trim()))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSearchSubmit();
+                    }
+                  }}
                       className="pl-10 bg-neutral-900 border-neutral-800 text-white placeholder:text-neutral-500"
                     />
+                {isSuggestionsOpen && (
+                  <div className="absolute left-0 right-0 mt-2 rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg z-20 max-h-80 overflow-auto">
+                    {isSuggestionsLoading ? (
+                      <div className="px-4 py-3 text-sm text-neutral-400">Searching...</div>
+                    ) : searchSuggestions.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-neutral-500">No matches found.</div>
+                    ) : (
+                      searchSuggestions.map((movie) => (
+                        <button
+                          key={movie.id}
+                          className="w-full text-left px-4 py-3 hover:bg-neutral-800 flex items-center justify-between"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchQuery(movie.title);
+                            handleSearchSubmit(movie.title);
+                          }}
+                        >
+                          <div>
+                            <div className="text-sm">{movie.title}</div>
+                            <div className="text-xs text-neutral-500">
+                              {movie.year} • {movie.genre?.[0] ?? "Genre"}
+                            </div>
+                          </div>
+                          <span className="text-xs text-yellow-500">{movie.rating.toFixed(1)}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
                   </div>
                   <div className="ml-4">
-                  <UserSwitcher
-                    currentUser={currentUser}
-                    currentUserEmail={currentUserObj?.email}
-                    onSignOut={() => {
-                      // Sign out and return to the login screen
-                      setIsAuthenticated(false);
-                      setAuthMode("login");
-                      setAuthError(null);
-                      setActiveSection("home");
-                      setAuthToken(null);
-                    }}
-                  />
+                    {isAuthenticated ? (
+                      <UserSwitcher
+                        currentUser={currentUser}
+                        currentUserEmail={currentUserObj?.email}
+                        onSignOut={() => {
+                          setIsAuthenticated(false);
+                          setAuthMode("login");
+                          setAuthError(null);
+                          setActiveSection("home");
+                          setAuthToken(null);
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="bg-neutral-900 border-neutral-800 text-white"
+                        onClick={() => {
+                          setActiveSection("login");
+                          setAuthMode("login");
+                        }}
+                      >
+                        Login / Register
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white gap-2">
-                        <ArrowUpDown className="h-4 w-4" />
-                        Sort: {sortBy === "title" ? "Title" : sortBy === "rating" ? "Rating" : "Year"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
-                      <DropdownMenuItem onClick={() => setSortBy("title")}>
-                        Title
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortBy("rating")}>
-                        Rating
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortBy("year")}>
-                        Year
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="bg-neutral-900 border-neutral-800 text-white gap-2">
-                        <SlidersHorizontal className="h-4 w-4" />
-                        Filter: {filterGenre === "all" ? "All Genres" : filterGenre}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-neutral-900 border-neutral-800 text-white">
-                      <DropdownMenuItem onClick={() => setFilterGenre("all")}>
-                        All Genres
-                      </DropdownMenuItem>
-                      {allGenres.map((genre) => (
-                        <DropdownMenuItem key={genre} onClick={() => setFilterGenre(genre)}>
-                          {genre}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  
                 </div>
               </div>
 
@@ -1111,17 +1658,6 @@ export default function App() {
         </div>
       </div>
 
-      <MovieDialog
-        movie={selectedMovie}
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        isInWatchlist={selectedMovie ? currentWatchlist.includes(selectedMovie.id) : false}
-        onWatchlistToggle={handleWatchlistToggle}
-        reviews={reviews}
-        onAddReview={handleAddReview}
-        currentUser={currentUser}
-        onFlagReview={handleFlagReview}
-      />
     </div>
   );
 }
