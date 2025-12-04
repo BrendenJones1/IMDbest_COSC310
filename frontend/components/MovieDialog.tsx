@@ -12,6 +12,7 @@ import { Textarea } from "./ui/textarea";
 import { useState } from "react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import type { Movie } from "./MovieCard";
+import { YouTubeTrailerPlayer } from "./YouTubeTrailerPlayer"; 
 
 interface Review {
   id: string;
@@ -112,6 +113,13 @@ export function MovieDialog({
               </DialogDescription>
             </div>
           </div>
+            {/* --- NEW TRAILER SECTION --- */}
+            {movie.trailerYoutubeId && (
+              <div className="mt-2">
+                <h3 className="mb-2 text-lg font-semibold">Trailer</h3>
+                <YouTubeTrailerPlayer videoId={movie.trailerYoutubeId} />
+              </div>
+            )}
         </DialogHeader>
 
         <div className="mt-6">

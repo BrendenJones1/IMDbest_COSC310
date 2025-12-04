@@ -12,6 +12,7 @@ export interface Movie {
   genre: string[];
   description: string;
   ageRating: string;
+  trailerYoutubeId?: string;
 }
 
 interface MovieCardProps {

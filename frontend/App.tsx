@@ -150,13 +150,36 @@ const normalizeYear = (value?: string) => {
   return new Date(timestamp).getFullYear();
 };
 
+const TRAILER_BY_ID: Record<string, string> = {
+  "avengers-endgame":"TcMBFSGVi1c",
+  "forrest-gump":"XHhAG-YLdk8",
+  "john-wick-chapter-3-parabellum":"M7XM597XO94",
+  "joker":"zAGVQLHvwOY",
+  "morbius":"oZ6iiRrz1SY",
+  "pulp-fiction":"s7EdQ4FqbhY",
+  "spiderman-no-way-home":"JfVOs4VSpmA",
+  "the-avengers":"eOrNdBpGMv8",
+  "the-dark-knight":"EXeTwQWrcwY",
+  "thor-ragnarok":"ue80QwXMRHg",
+};
+
+const setMovieTrailer = (movie: Movie): Movie => {
+  const hardcodedTrailer = TRAILER_BY_ID[movie.id];
+
+  return {
+    ...movie,
+    // prefer backend/metadata trailer if it exists, otherwise use hardcoded one
+    trailerYoutubeId: movie.trailerYoutubeId ?? hardcodedTrailer,
+  };
+};
+
 const mapBackendMovie = (summary: any, metadata: Record<string, any>): Movie => {
   const title = metadata?.title || summary?.title || "Untitled";
   const genre = Array.isArray(metadata?.movieGenres) && metadata.movieGenres.length > 0
-    ? metadata.movieGenres
-    : ["Uncategorized"];
+      ? metadata.movieGenres
+      : ["Uncategorized"];
 
-  return {
+  const base: Movie = {
     id: summary?.id || slugify(title),
     title,
     year: normalizeYear(metadata?.datePublished || summary?.releaseDate),
@@ -165,7 +188,12 @@ const mapBackendMovie = (summary: any, metadata: Record<string, any>): Movie => 
     genre,
     description: metadata?.description || "Description not available.",
     ageRating: metadata?.ageRating || "NR",
+    // in case backend ever sends it
+    trailerYoutubeId: metadata?.trailerYoutubeId || summary?.trailerYoutubeId,
   };
+
+  // decorate with hardcoded trailer
+  return setMovieTrailer(base);
 };
 
 interface User {
