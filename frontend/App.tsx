@@ -702,12 +702,55 @@ export default function App() {
     );
   };
 
-  const handleAddPenalty = (userId: string) => {
+  const handleAddPenalty = async (userId: string, reason: string) => {
+    if (!currentUserObj) {
+      throw new Error("Please sign in to administer penalties.");
+    }
+
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) {
+      throw new Error("Selected user could not be found.");
+    }
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      throw new Error("Penalty reason is required.");
+    }
+
+    const payload: Record<string, unknown> = {
+      user_id: targetUser.numericId,
+      issued_by: currentUserObj.numericId,
+      reason: trimmedReason,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/penalties`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let data: any = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const message = data?.detail || "Unable to issue penalty right now.";
+      throw new Error(message);
+    }
+
     setUsers((prev) =>
       prev.map((u) =>
         u.id === userId ? { ...u, penalties: u.penalties + 1 } : u
       )
     );
+
+    return data;
   };
 
   const handleRemovePenalty = (userId: string) => {
