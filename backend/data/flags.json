@@ -339,5 +339,23 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-12-02T13:30:11.436569"
+    },
+    {
+        "flag_id": 39,
+        "review_id": 1231800115,
+        "flagger_id": 1808500496,
+        "flagged_user_id": 292870822,
+        "reason": "very gross",
+        "status": "pending",
+        "date_created": "2025-12-03T18:56:22.451682"
+    },
+    {
+        "flag_id": 40,
+        "review_id": 1231800115,
+        "flagger_id": 641455522,
+        "flagged_user_id": 292870822,
+        "reason": "annoying",
+        "status": "pending",
+        "date_created": "2025-12-03T18:58:48.273232"
     }
 ]

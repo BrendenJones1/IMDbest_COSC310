@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from threading import RLock  # NEW
 
 from backend.schemas.review import ReviewCreate, ReviewUpdate, ReviewOut
-from repositories.movie_repo import MovieRepository, ReviewRepository
+from backend.repositories.movie_repo import MovieRepository, ReviewRepository
 
 
 # NEW: lock to protect read-modify-write review+metadata sequences
