@@ -384,5 +384,32 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-12-03T20:48:02.111739"
+    },
+    {
+        "flag_id": 44,
+        "review_id": 1231800115,
+        "flagger_id": 1808500496,
+        "flagged_user_id": 292870822,
+        "reason": "bad",
+        "status": "pending",
+        "date_created": "2025-12-03T21:36:05.111815"
+    },
+    {
+        "flag_id": 45,
+        "review_id": 1231800115,
+        "flagger_id": 1808500496,
+        "flagged_user_id": 292870822,
+        "reason": "spam",
+        "status": "pending",
+        "date_created": "2025-12-03T21:44:57.662147"
+    },
+    {
+        "flag_id": 46,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-12-03T21:57:52.813190"
     }
 ]

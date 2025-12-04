@@ -15,6 +15,9 @@ class MoviesService:
             "title": meta.get("title"),
             "userRatingAverage": float(meta.get("userRatingAverage", 0.0)),
             "userRatingCount": int(meta.get("userRatingCount", 0)),
+            "poster": meta.get("poster"),
+            "description": meta.get("description"),
+            "ageRating": meta.get("ageRating"),
+            "movieGenres": meta.get("movieGenres"),
         }
-
 

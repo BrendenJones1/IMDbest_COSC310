@@ -493,5 +493,27 @@
         "active": true,
         "date_revoked": null,
         "revoked_by": null
+    },
+    {
+        "penalty_id": 41,
+        "user_id": 292870822,
+        "issued_by": 641455522,
+        "reason": "toxic",
+        "source_flag_id": null,
+        "date_issued": "2025-12-04T05:48:09.525709+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 42,
+        "user_id": 8,
+        "issued_by": 99,
+        "reason": "abusive",
+        "source_flag_id": null,
+        "date_issued": "2025-12-04T05:57:52.814893+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
     }
 ]
