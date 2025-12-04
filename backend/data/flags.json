@@ -357,5 +357,32 @@
         "reason": "annoying",
         "status": "pending",
         "date_created": "2025-12-03T18:58:48.273232"
+    },
+    {
+        "flag_id": 41,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-12-03T20:39:48.901895"
+    },
+    {
+        "flag_id": 42,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-12-03T20:44:27.854083"
+    },
+    {
+        "flag_id": 43,
+        "review_id": 5,
+        "flagger_id": 12,
+        "flagged_user_id": 8,
+        "reason": "abusive",
+        "status": "approved",
+        "date_created": "2025-12-03T20:48:02.111739"
     }
 ]
