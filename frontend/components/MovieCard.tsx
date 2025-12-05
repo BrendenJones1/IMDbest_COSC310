@@ -18,6 +18,9 @@ export interface Movie {
   userReviews?: number;
   ratingCount?: number;
   imdbRating?: number;
+  directors?: string[];
+  creators?: string[];
+  mainStars?: string[];
 }
 
 interface MovieCardProps {
