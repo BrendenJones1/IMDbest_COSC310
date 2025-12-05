@@ -1,4 +1,5 @@
-import { Star, Plus, Check } from "lucide-react";
+import React from "react";
+import { Star, Plus, Check, X } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
@@ -58,13 +59,22 @@ export function MovieCard({ movie, isInWatchlist, onWatchlistToggle, onMovieClic
           <Button
             size="icon"
             variant={isInWatchlist ? "default" : "secondary"}
-            className="h-8 w-8 rounded-full"
+            className={`h-8 w-8 rounded-full group/watch-btn transition-colors ${
+              isInWatchlist ? "bg-green-600 hover:bg-red-600" : ""
+            }`}
               onClick={(e) => {
                 e.stopPropagation();
                 onWatchlistToggle(movie.id);
               }}
           >
-            {isInWatchlist ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {isInWatchlist ? (
+              <span className="relative flex items-center justify-center">
+                <Check className="h-4 w-4 transition-opacity group-hover/watch-btn:opacity-0" />
+                <X className="h-4 w-4 text-red-200 absolute opacity-0 transition-opacity group-hover/watch-btn:opacity-100" />
+              </span>
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
           </Button>
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
