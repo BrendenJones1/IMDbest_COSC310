@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Star } from "lucide-react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Sidebar } from "./components/Sidebar";
@@ -129,7 +129,7 @@ const carouselSlides = [
   },
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const hashStringToPositiveInt = (value: string) => {
   let hash = 0;
@@ -459,13 +459,15 @@ interface UserWatchlist {
   [userId: string]: string[];
 }
 
-interface Review {
-  id: string;
+interface UserReview {
+  movieId: string;
   userId: string;
-  userName: string;
+  username: string;
   rating: number;
-  comment: string;
-  date: string;
+  reviewText: string;
+  upvotes: number;
+  downvotes: number;
+  createdAt: string;
 }
 
 interface FlagReviewPayload {
@@ -504,29 +506,14 @@ export default function App() {
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
   const usersRef = useRef<User[]>(mockUsers);
+  const [reviewsByMovie, setReviewsByMovie] = useState<Record<string, UserReview[]>>({});
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
     bob: ["urban-legends", "love-in-paris"],
     charlie: ["the-cosmic-journey", "urban-legends", "dark-horizons"],
   });
-  const [reviews, setReviews] = useState<Review[]>([
-    {
-      id: "the-cosmic-journey",
-      userId: "alice",
-      userName: "Alice",
-      rating: 9,
-      comment: "An absolutely stunning visual masterpiece! The space scenes were breathtaking.",
-      date: "2024-10-20",
-    },
-    {
-      id: "cinema-dreams",
-      userId: "bob",
-      userName: "Bob",
-      rating: 10,
-      comment: "A must-watch for anyone who loves cinema. Beautifully crafted story.",
-      date: "2024-10-18",
-    },
-  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -620,9 +607,57 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  const mapBackendReview = useCallback((movieId: string, item: any): UserReview => {
+    return {
+      movieId,
+      userId: item.user_id,
+      username: item.username || item.user_id,
+      rating: typeof item.rating === "number" ? item.rating : Number(item.rating ?? 0),
+      reviewText: item.review_text || "",
+      upvotes: typeof item.upvotes === "number" ? item.upvotes : Number(item.upvotes ?? 0),
+      downvotes: typeof item.downvotes === "number" ? item.downvotes : Number(item.downvotes ?? 0),
+      createdAt: item.created_at || new Date().toISOString(),
+    };
+  }, []);
+
+  const fetchReviewsForMovie = useCallback(
+    async (movieId: string) => {
+      setIsLoadingReviews(true);
+      setReviewError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/reviews/${movieId}?limit=100&sort=upvotes`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reviews (${response.status})`);
+        }
+        const payload = await response.json();
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const mapped = items.map((item: any) => mapBackendReview(movieId, item));
+        setReviewsByMovie((prev) => ({ ...prev, [movieId]: mapped }));
+      } catch (error) {
+        console.error("Unable to load reviews", error);
+        setReviewError("Unable to load reviews right now.");
+        // keep existing reviews if fetch fails
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    },
+    [mapBackendReview]
+  );
+
+  useEffect(() => {
+    if (!selectedMovie) return;
+    fetchReviewsForMovie(selectedMovie.id);
+  }, [selectedMovie, fetchReviewsForMovie]);
+
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+  const allReviews = useMemo<UserReview[]>(
+    () => Object.values(reviewsByMovie).flat(),
+    [reviewsByMovie]
+  );
+  const selectedMovieReviews = selectedMovie ? reviewsByMovie[selectedMovie.id] || [] : [];
+  const currentUserReview = selectedMovieReviews.find((r) => r.userId === currentUserId);
 
   const fetchSearchResults = useCallback(
     async (
@@ -997,7 +1032,11 @@ const loginAgainstBackend = async (username: string, password: string) => {
 
   const handleDeleteMovie = (movieId: string) => {
     setMovies((prev) => prev.filter((m) => m.id !== movieId));
-    setReviews((prev) => prev.filter((r) => r.id !== movieId));
+    setReviewsByMovie((prev) => {
+      const next = { ...prev };
+      delete next[movieId];
+      return next;
+    });
     setWatchlists((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((user) => {
@@ -1026,12 +1065,6 @@ const loginAgainstBackend = async (username: string, password: string) => {
     setMovies((prev) => [...prev, movieWithId]);
   };
 
-  const handleDeleteReview = (movieId: string, userId: string, date: string) => {
-    setReviews((prev) =>
-      prev.filter((r) => !(r.id === movieId && r.userId === userId && r.date === date))
-    );
-  };
-
   const handleDeleteUser = (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     // Also clean up user's data
@@ -1040,7 +1073,13 @@ const loginAgainstBackend = async (username: string, password: string) => {
       delete updated[userId];
       return updated;
     });
-    setReviews((prev) => prev.filter((r) => r.userId !== userId));
+    setReviewsByMovie((prev) => {
+      const next: Record<string, UserReview[]> = {};
+      Object.entries(prev).forEach(([movieId, revs]) => {
+        next[movieId] = revs.filter((r) => r.userId !== userId);
+      });
+      return next;
+    });
     
     // Switch to another user if deleting current user
     if (currentUserId === userId && users.length > 1) {
@@ -1065,6 +1104,118 @@ const loginAgainstBackend = async (username: string, password: string) => {
         u.id === userId ? { ...u, isFlagged: false, flagReason: undefined } : u
       )
     );
+  };
+
+  const handleVoteReview = async (
+    movieId: string,
+    reviewUserId: string,
+    direction: "up" | "down"
+  ) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      setIsDialogOpen(false);
+      return;
+    }
+
+    if (reviewUserId === currentUserId) {
+      return;
+    }
+
+    const endpoint = direction === "up" ? "upvote" : "downvote";
+    try {
+      const response = await fetch(`${API_BASE_URL}/reviews/${movieId}/${reviewUserId}/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ voter_id: currentUserId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Unable to submit vote right now.");
+      }
+
+      setReviewsByMovie((prev) => {
+        const existing = prev[movieId] || [];
+        const updated = existing.map((r) =>
+          r.userId === reviewUserId
+            ? {
+                ...r,
+                upvotes:
+                  direction === "up"
+                    ? (payload?.upvotes ?? r.upvotes ?? 0)
+                    : r.upvotes ?? 0,
+                downvotes:
+                  direction === "down"
+                    ? (payload?.downvotes ?? r.downvotes ?? 0)
+                    : r.downvotes ?? 0,
+              }
+            : r
+        );
+        return { ...prev, [movieId]: updated };
+      });
+    } catch (error) {
+      console.error("Failed to vote on review", error);
+      setReviewError("Unable to vote on this review right now.");
+    }
+  };
+
+  const handleSubmitReview = async (movieId: string, rating: number, comment: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      setIsDialogOpen(false);
+      return;
+    }
+
+    const normalizedRating = Math.max(1, Math.min(10, rating));
+    try {
+      const response = await fetch(`${API_BASE_URL}/reviews/${movieId}/${currentUserId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ rating: normalizedRating, review_text: comment }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Unable to submit review.");
+      }
+
+      const mapped = mapBackendReview(movieId, payload);
+      setReviewsByMovie((prev) => ({
+        ...prev,
+        [movieId]: [
+          ...(prev[movieId]?.filter((r) => r.userId !== currentUserId) || []),
+          mapped,
+        ],
+      }));
+    } catch (error) {
+      console.error("Failed to submit review", error);
+      setReviewError("Unable to submit review right now.");
+    }
+  };
+
+  const handleDeleteReview = async (movieId: string, userId?: string, _date?: string) => {
+    const targetUser = userId || currentUserId;
+    try {
+      await fetch(`${API_BASE_URL}/reviews/${movieId}/${targetUser}`, {
+        method: "DELETE",
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to delete review", error);
+    } finally {
+      setReviewsByMovie((prev) => ({
+        ...prev,
+        [movieId]: (prev[movieId] || []).filter((r) => r.userId !== targetUser),
+      }));
+    }
   };
 
   const handleAddPenalty = async (userId: string, reason: string) => {
@@ -1365,7 +1516,7 @@ const loginAgainstBackend = async (username: string, password: string) => {
             <AdminPanel
               movies={movies}
               users={users}
-              reviews={reviews}
+              reviews={allReviews as any}
               watchlists={watchlists}
               onDeleteMovie={handleDeleteMovie}
               onEditMovie={handleEditMovie}
@@ -1728,7 +1879,7 @@ const loginAgainstBackend = async (username: string, password: string) => {
                     <AdminDashboard 
                       users={users}
                       movies={movies}
-                      reviews={reviews}
+                      reviews={allReviews as any}
                       watchlists={watchlists}
                     />
                   ) : currentUserObj ? (
@@ -1736,7 +1887,7 @@ const loginAgainstBackend = async (username: string, password: string) => {
                       currentUser={currentUserObj}
                       movies={movies}
                       watchlist={currentWatchlist}
-                      reviews={reviews}
+                      reviews={allReviews as any}
                     />
                   ) : null}
                 </>
@@ -1775,6 +1926,32 @@ const loginAgainstBackend = async (username: string, password: string) => {
         </div>
       </div>
 
+      <MovieDialog
+        movie={selectedMovie}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        isInWatchlist={selectedMovie ? currentWatchlist.includes(selectedMovie.id) : false}
+        onWatchlistToggle={handleWatchlistToggle}
+        reviews={selectedMovieReviews}
+        onVoteReview={handleVoteReview}
+        currentUserId={currentUserId}
+        currentUserName={currentUser}
+        isAuthenticated={isAuthenticated}
+        onRequireLogin={() => {
+          setActiveSection("login");
+          setAuthMode("login");
+          setIsDialogOpen(false);
+        }}
+        reviewError={reviewError}
+        isReviewLoading={isLoadingReviews}
+        onSubmitReview={handleSubmitReview}
+        onDeleteReview={async () => {
+          if (!selectedMovie) return;
+          await handleDeleteReview(selectedMovie.id, currentUserId);
+        }}
+        userReview={currentUserReview}
+        onFlagReview={handleFlagReview}
+      />
     </div>
   );
 }

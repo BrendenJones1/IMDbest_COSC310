@@ -23,20 +23,56 @@ class ReviewService:
     """
 
     def _parse_datetime(self, value):
-        # Accept ISO strings, return datetime; fall back to current time if invalid
+        """
+        Accept a variety of date formats:
+        - ISO strings (with or without Z)
+        - \"25 May 2005\" / \"14 Feb 2005\" style
+        - Fallback to epoch if unparseable
+        """
         if value is None:
-            return datetime.now(timezone.utc)
+            return datetime.fromtimestamp(0, tz=timezone.utc)
         if isinstance(value, datetime):
             return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-        try:
-            # fromisoformat handles most formats except 'Z' suffix; handle that
-            text = str(value)
-            if text.endswith("Z"):
-                text = text[:-1]
-            parsed = datetime.fromisoformat(text)
-            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-        except Exception:
-            return datetime.now(timezone.utc)
+
+        text = str(value).strip()
+        # handle trailing Z
+        if text.endswith("Z"):
+            text = text[:-1]
+
+        # Try ISO first
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+
+        # Try long/short month names
+        for fmt in ("%d %B %Y", "%d %b %Y"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                return parsed.replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+
+        return datetime.fromtimestamp(0, tz=timezone.utc)
+
+    def _prepare_review_out(self, user_id: str, record: dict, id_to_name: Optional[Dict[str, str]] = None) -> ReviewOut:
+        """
+        Build a ReviewOut with parsed datetimes and coerced numeric fields.
+        """
+        created_raw = record.get("created_at") or record.get("timestamp") or record.get("updated_at")
+        updated_raw = record.get("updated_at") or record.get("timestamp") or record.get("created_at")
+        return ReviewOut(
+            user_id=user_id,
+            username=record.get("username") or (id_to_name or {}).get(user_id),
+            rating=float(record.get("rating") or 0.0),
+            review_text=record.get("review_text"),
+            upvotes=int(record.get("upvotes") or 0),
+            downvotes=int(record.get("downvotes") or 0),
+            created_at=self._parse_datetime(created_raw),
+            updated_at=self._parse_datetime(updated_raw),
+        )
 
     def _load_usernames(self) -> Dict[str, str]:
         """
@@ -75,19 +111,7 @@ class ReviewService:
         reviews_map = data.get("reviews", {})
         items = []
         for user_id, r in reviews_map.items():
-            created_raw = r.get("created_at") or r.get("timestamp") or r.get("updated_at")
-            updated_raw = r.get("updated_at") or r.get("timestamp") or r.get("created_at")
-            item = {
-                "user_id": user_id,
-                "username": r.get("username") or id_to_name.get(user_id),
-                "rating": float(r.get("rating")) if r.get("rating") is not None else 0.0,
-                "review_text": r.get("review_text"),
-                "upvotes": int(r.get("upvotes") or 0),
-                "downvotes": int(r.get("downvotes") or 0),
-                "created_at": self._parse_datetime(created_raw),
-                "updated_at": self._parse_datetime(updated_raw),
-            }
-            items.append(ReviewOut(**item))
+            items.append(self._prepare_review_out(user_id, r, id_to_name))
 
         if sort == "upvotes":
             items.sort(key=lambda x: (x.upvotes, x.created_at), reverse=True)
@@ -141,7 +165,7 @@ class ReviewService:
             ReviewRepository.save_review_data(movie_id, review_data)
             MovieRepository.save_movie_metadata(movie_id, metadata)
 
-        return ReviewOut(**updated_review)
+        return self._prepare_review_out(user_id, updated_review)
 
     def get_user_review(self, user_id: str, movie_id: str) -> Optional[ReviewOut]:
         """
@@ -152,7 +176,79 @@ class ReviewService:
 
         if user_id not in review_data["reviews"]:
             return None
-        return ReviewOut(**review_data["reviews"][user_id])
+        return self._prepare_review_out(user_id, review_data["reviews"][user_id])
+
+    def upvote_review(self, movie_id: str, review_user_id: str, voter_user_id: str) -> ReviewOut:
+        """
+        Register an upvote. If the voter already upvoted, toggle it off. If they had a downvote, switch to upvote.
+        """
+        self._ensure_movie_exists(movie_id)
+        with _REVIEW_RMW_LOCK:
+            review_data = ReviewRepository.get_review_data(movie_id)
+            reviews = review_data.get("reviews", {})
+            if review_user_id not in reviews:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="review not found")
+            if review_user_id == voter_user_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="cannot upvote your own review")
+
+            current = reviews[review_user_id]
+            voters = current.get("voters", {})
+            previous_vote = voters.get(voter_user_id)
+
+            if previous_vote == "up":
+                current["upvotes"] = max(0, int(current.get("upvotes") or 0) - 1)
+                voters.pop(voter_user_id, None)
+            elif previous_vote == "down":
+                current["downvotes"] = max(0, int(current.get("downvotes") or 0) - 1)
+                current["upvotes"] = int(current.get("upvotes") or 0) + 1
+                voters[voter_user_id] = "up"
+            else:
+                current["upvotes"] = int(current.get("upvotes") or 0) + 1
+                voters[voter_user_id] = "up"
+
+            current["voters"] = voters
+            current["updated_at"] = datetime.now(timezone.utc).isoformat()
+            reviews[review_user_id] = current
+            review_data["reviews"] = reviews
+            ReviewRepository.save_review_data(movie_id, review_data)
+
+        return self._prepare_review_out(review_user_id, current)
+
+    def downvote_review(self, movie_id: str, review_user_id: str, voter_user_id: str) -> ReviewOut:
+        """
+        Register a downvote. If the voter already downvoted, toggle it off. If they had an upvote, switch to downvote.
+        """
+        self._ensure_movie_exists(movie_id)
+        with _REVIEW_RMW_LOCK:
+            review_data = ReviewRepository.get_review_data(movie_id)
+            reviews = review_data.get("reviews", {})
+            if review_user_id not in reviews:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="review not found")
+            if review_user_id == voter_user_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="cannot downvote your own review")
+
+            current = reviews[review_user_id]
+            voters = current.get("voters", {})
+            previous_vote = voters.get(voter_user_id)
+
+            if previous_vote == "down":
+                current["downvotes"] = max(0, int(current.get("downvotes") or 0) - 1)
+                voters.pop(voter_user_id, None)
+            elif previous_vote == "up":
+                current["upvotes"] = max(0, int(current.get("upvotes") or 0) - 1)
+                current["downvotes"] = int(current.get("downvotes") or 0) + 1
+                voters[voter_user_id] = "down"
+            else:
+                current["downvotes"] = int(current.get("downvotes") or 0) + 1
+                voters[voter_user_id] = "down"
+
+            current["voters"] = voters
+            current["updated_at"] = datetime.now(timezone.utc).isoformat()
+            reviews[review_user_id] = current
+            review_data["reviews"] = reviews
+            ReviewRepository.save_review_data(movie_id, review_data)
+
+        return self._prepare_review_out(review_user_id, current)
 
     
     def delete_user_review(self, user_id: str, movie_id: str) -> None:
