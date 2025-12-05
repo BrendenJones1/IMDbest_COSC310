@@ -3,6 +3,16 @@ import { Film, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface LoginScreenProps {
   onLogin?: (data: { email: string; password: string }) => void;
@@ -11,12 +21,17 @@ interface LoginScreenProps {
   errorMessage?: string | null;
 }
 
-const DEMO_ACCOUNTS = [
-  { label: "Admin demo", email: "admin@demo.com", password: "password" },
-  { label: "User demo", email: "user@demo.com", password: "password" },
+const USER_DEMOS = [
+  { label: "Elon", email: "elon@demo.com", password: "password" },
+  { label: "Trump", email: "trump@demo.com", password: "password" },
+  { label: "Messi", email: "messi@demo.com", password: "password" },
 ];
 
-export function LoginScreen({ onLogin, onSwitchToRegister, onBack, errorMessage }: LoginScreenProps) {
+const ADMIN_DEMO = { label: "Admin", email: "admin@demo.com", password: "password" };
+
+const DEMO_ACCOUNTS = [...USER_DEMOS, ADMIN_DEMO];
+
+export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
   const [selectedDemo, setSelectedDemo] = useState(DEMO_ACCOUNTS[0].email);
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
@@ -51,10 +66,14 @@ export function LoginScreen({ onLogin, onSwitchToRegister, onBack, errorMessage 
     }
   };
 
-  const handlePrefill = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setErrors({});
+  const handleDemoChange = (demoEmail: string) => {
+    setSelectedDemo(demoEmail);
+    const account = DEMO_ACCOUNTS.find((demo) => demo.email === demoEmail);
+    if (account) {
+      setEmail(account.email);
+      setPassword(account.password);
+      setErrors({});
+    }
   };
 
   return (
@@ -140,25 +159,32 @@ export function LoginScreen({ onLogin, onSwitchToRegister, onBack, errorMessage 
           </form>
 
           <div className="mt-6 space-y-2">
-            <p className="text-sm text-neutral-300">
-              Demo accounts (password: <span className="text-white font-semibold">password</span>)
+            <Label className="text-sm text-neutral-300">Select demo account</Label>
+            <Select value={selectedDemo} onValueChange={handleDemoChange}>
+              <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white">
+                <SelectValue placeholder="Choose demo" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                <SelectGroup>
+                  <SelectLabel className="text-xs text-neutral-400">Users</SelectLabel>
+                  {USER_DEMOS.map((account) => (
+                    <SelectItem key={account.email} value={account.email}>
+                      {account.label} ({account.email})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectSeparator className="bg-neutral-800" />
+                <SelectGroup>
+                  <SelectLabel className="text-xs text-neutral-400">Admin</SelectLabel>
+                  <SelectItem value={ADMIN_DEMO.email}>
+                    {ADMIN_DEMO.label} ({ADMIN_DEMO.email})
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-neutral-400">
+              Password is <span className="text-white font-semibold">password</span> for all demos.
             </p>
-            <div className="grid gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handlePrefill(account.email, account.password)}
-                  className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-left text-sm text-white hover:bg-neutral-800 transition"
-                >
-                  <div>
-                    <div className="font-medium">{account.label}</div>
-                    <div className="text-xs text-neutral-400">{account.email}</div>
-                  </div>
-                  <span className="text-xs uppercase tracking-wide text-red-300">Demo</span>
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className="mt-6 text-center text-sm text-neutral-400">

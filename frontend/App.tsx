@@ -1570,7 +1570,7 @@ export default function App() {
                 <div className="mb-6 text-sm text-neutral-400">Loading movies from backend...</div>
               )}
 
-              {activeSection === "home" && (
+              {showDiscoverySections && (
                 <>
                   <div className="mb-8">
                     <MovieCarousel slides={carouselSlides} />
