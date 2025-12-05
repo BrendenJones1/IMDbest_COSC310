@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Search, SlidersHorizontal, ArrowUpDown, Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Star, ThumbsUp, ThumbsDown, Flag } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Sidebar } from "./components/Sidebar";
@@ -28,6 +28,16 @@ import {
   CarouselPrevious,
 } from "./components/ui/carousel";
 import { MyMovieNote } from "./components/MyMovieNote";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+} from "./components/ui/alert-dialog";
+import type { ModerationFlag, FlagStatus } from "./types/moderation";
 
 
 // Mock movie data
@@ -195,6 +205,53 @@ const mapBackendUser = (backendUser: any): User => {
     backendId,
     numericId,
   };
+};
+
+const annotateUsersWithFlags = (baseUsers: User[], flagList: ModerationFlag[]): User[] => {
+  if (flagList.length === 0) {
+    return baseUsers.map((user) =>
+      user.isFlagged || user.flagReason
+        ? { ...user, isFlagged: false, flagReason: undefined }
+        : user
+    );
+  }
+
+  const groupedByUser = flagList.reduce<Map<number, ModerationFlag[]>>((acc, flag) => {
+    const existing = acc.get(flag.flagged_user_id) ?? [];
+    existing.push(flag);
+    acc.set(flag.flagged_user_id, existing);
+    return acc;
+  }, new Map());
+
+  return baseUsers.map((user) => {
+    const relatedFlags = groupedByUser.get(user.numericId) || [];
+    if (relatedFlags.length === 0) {
+      if (!user.isFlagged && !user.flagReason) {
+        return user;
+      }
+      return { ...user, isFlagged: false, flagReason: undefined };
+    }
+
+    const activeFlags = relatedFlags.filter(
+      (flag) => flag.status && flag.status.toLowerCase() !== "rejected"
+    );
+    if (activeFlags.length === 0) {
+      if (!user.isFlagged && !user.flagReason) {
+        return user;
+      }
+      return { ...user, isFlagged: false, flagReason: undefined };
+    }
+
+    const pendingFlag = activeFlags.find(
+      (flag) => flag.status.toLowerCase() === "pending"
+    );
+    const sortedFlags = [...activeFlags].sort((a, b) => a.flag_id - b.flag_id);
+    const latestFlag = pendingFlag ?? sortedFlags[sortedFlags.length - 1];
+
+    return latestFlag && latestFlag.reason !== user.flagReason
+      ? { ...user, isFlagged: true, flagReason: latestFlag.reason }
+      : { ...user, isFlagged: true };
+  });
 };
 
 const backendSortKeyFromUI = (value: "title" | "rating" | "year") => {
@@ -794,6 +851,11 @@ export default function App() {
   const [sortBy, setSortBy] = useState<"title" | "rating" | "year">("title");
   const [filterGenre, setFilterGenre] = useState<string>("all");
   const [detailReviewInput, setDetailReviewInput] = useState({ rating: 5, comment: "" });
+  const [detailFlaggingReview, setDetailFlaggingReview] = useState<UserReview | null>(null);
+  const [detailFlagReason, setDetailFlagReason] = useState("");
+  const [detailFlagError, setDetailFlagError] = useState<string | null>(null);
+  const [detailFlagSuccess, setDetailFlagSuccess] = useState<string | null>(null);
+  const [isSubmittingDetailFlag, setIsSubmittingDetailFlag] = useState(false);
   const [movies, setMovies] = useState<Movie[]>(initialMovies);
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
@@ -808,6 +870,8 @@ export default function App() {
     bob: ["urban-legends", "love-in-paris"],
     charlie: ["the-cosmic-journey", "urban-legends", "dark-horizons"],
   });
+  const [flags, setFlags] = useState<ModerationFlag[]>([]);
+  const annotatedUsers = useMemo(() => annotateUsersWithFlags(users, flags), [users, flags]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -950,14 +1014,39 @@ export default function App() {
     [mapBackendReview]
   );
 
+  const fetchFlags = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flags`, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          return;
+        }
+        throw new Error(`Failed to fetch flags: ${response.status}`);
+      }
+      const payload = await response.json();
+      setFlags(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.warn("Unable to load moderation flags", error);
+    }
+  }, [authToken]);
+
   useEffect(() => {
     if (!selectedMovie) return;
     fetchReviewsForMovie(selectedMovie.id);
   }, [selectedMovie, fetchReviewsForMovie]);
 
-  const currentUserObj = users.find((u) => u.name === currentUser);
+  const currentUserObj = annotatedUsers.find((u) => u.name === currentUser) || users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin) return;
+    fetchFlags();
+  }, [fetchFlags, isAuthenticated, isAdmin]);
   const allReviews = useMemo<UserReview[]>(
     () => Object.values(reviewsByMovie).flat(),
     [reviewsByMovie]
@@ -1335,15 +1424,54 @@ const loginAgainstBackend = async (username: string, password: string) => {
       throw new Error(payload?.detail || "Unable to submit this flag right now.");
     }
 
-    if (targetUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === targetUser.id ? { ...u, isFlagged: true, flagReason: trimmedReason } : u
-        )
-      );
+    if (payload?.flag_id) {
+      setFlags((prev) => {
+        const alreadyTracked = prev.some((flag) => flag.flag_id === payload.flag_id);
+        if (alreadyTracked) {
+          return prev.map((flag) => (flag.flag_id === payload.flag_id ? payload : flag));
+        }
+        return [...prev, payload];
+      });
+    } else {
+      fetchFlags();
     }
 
     return payload;
+  };
+
+  const closeDetailFlagDialog = () => {
+    setDetailFlaggingReview(null);
+    setDetailFlagReason("");
+    setDetailFlagError(null);
+    setIsSubmittingDetailFlag(false);
+  };
+
+  const handleSubmitDetailFlag = async () => {
+    if (!selectedMovie || !detailFlaggingReview) return;
+    const trimmed = detailFlagReason.trim();
+    if (!trimmed) {
+      setDetailFlagError("Please share a short reason.");
+      return;
+    }
+    setIsSubmittingDetailFlag(true);
+    setDetailFlagError(null);
+    try {
+      await handleFlagReview({
+        movieId: selectedMovie.id,
+        reviewUserId: detailFlaggingReview.userId,
+        reviewUserName: detailFlaggingReview.username || detailFlaggingReview.userName,
+        reason: trimmed,
+      });
+      setDetailFlagSuccess("Thanks! We'll review this submission shortly.");
+      setTimeout(() => setDetailFlagSuccess(null), 4000);
+      closeDetailFlagDialog();
+    } catch (error) {
+      setDetailFlagError(
+        error instanceof Error ? error.message : "Unable to flag this review right now."
+      );
+    } finally {
+      setIsSubmittingDetailFlag(false);
+    }
   };
 
   const handleMovieClick = (movie: Movie) => {
@@ -1412,20 +1540,81 @@ const loginAgainstBackend = async (username: string, password: string) => {
     }
   };
 
-  const handleFlagUser = (userId: string, reason: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isFlagged: true, flagReason: reason } : u
-      )
+  const handleFlagUser = async (userId: string, reason: string) => {
+    if (!currentUserObj) {
+      throw new Error("Please sign in as an administrator.");
+    }
+
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) {
+      throw new Error("Selected user could not be found.");
+    }
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      throw new Error("Please provide a reason for the flag.");
+    }
+
+    const flaggerId = coerceNumericId(
+      currentUserObj.backendId ?? currentUserObj.id,
+      currentUserObj.id
     );
+
+    const response = await fetch(`${API_BASE_URL}/flags`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        review_id: hashStringToPositiveInt(`${targetUser.id}:manual-flag`),
+        flagger_id: flaggerId,
+        flagged_user_id: targetUser.numericId,
+        reason: trimmedReason,
+      }),
+    });
+
+    let payload: any = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Unable to flag this user right now.");
+    }
+
+    setFlags((prev) => [...prev, payload]);
   };
 
-  const handleUnflagUser = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isFlagged: false, flagReason: undefined } : u
-      )
+  const handleResolveFlag = async (flagId: number, status: FlagStatus = "rejected") => {
+    const normalizedStatus = status || "rejected";
+    const response = await fetch(`${API_BASE_URL}/flags/${flagId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ status: normalizedStatus }),
+    });
+
+    let payload: any = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Unable to update this flag right now.");
+    }
+
+    setFlags((prev) =>
+      prev.map((flag) => (flag.flag_id === flagId ? payload : flag))
     );
+
+    return payload;
   };
 
   const handleVoteReview = async (
@@ -1557,7 +1746,11 @@ const loginAgainstBackend = async (username: string, password: string) => {
     }
   };
 
-  const handleAddPenalty = async (userId: string, reason: string) => {
+  const handleAddPenalty = async (
+    userId: string,
+    reason: string,
+    options?: { flagId?: number }
+  ) => {
     if (!currentUserObj) {
       throw new Error("Please sign in to administer penalties.");
     }
@@ -1576,6 +1769,7 @@ const loginAgainstBackend = async (username: string, password: string) => {
       user_id: targetUser.numericId,
       issued_by: currentUserObj.numericId,
       reason: trimmedReason,
+      ...(options?.flagId ? { source_flag_id: options.flagId } : {}),
     };
 
     const response = await fetch(`${API_BASE_URL}/penalties`, {
@@ -1604,6 +1798,10 @@ const loginAgainstBackend = async (username: string, password: string) => {
         u.id === userId ? { ...u, penalties: u.penalties + 1 } : u
       )
     );
+
+    if (options?.flagId) {
+      await handleResolveFlag(options.flagId, "approved");
+    }
 
     return data;
   };
@@ -1885,16 +2083,17 @@ const loginAgainstBackend = async (username: string, password: string) => {
           {activeSection === "admin" ? (
             <AdminPanel
               movies={movies}
-              users={users}
+              users={annotatedUsers}
               reviews={allReviews as any}
               watchlists={watchlists}
+              flags={flags}
               onDeleteMovie={handleDeleteMovie}
               onEditMovie={handleEditMovie}
               onAddMovie={handleAddMovie}
               onDeleteReview={handleDeleteReview}
               onDeleteUser={handleDeleteUser}
               onFlagUser={handleFlagUser}
-              onUnflagUser={handleUnflagUser}
+              onResolveFlag={handleResolveFlag}
               onAddPenalty={handleAddPenalty}
               onRemovePenalty={handleRemovePenalty}
             />
@@ -2047,6 +2246,11 @@ const loginAgainstBackend = async (username: string, password: string) => {
                 </div>
 
                 <div className="space-y-3">
+                  {detailFlagSuccess && (
+                    <div className="rounded border border-green-900 bg-green-900/30 px-3 py-2 text-sm text-green-200">
+                      {detailFlagSuccess}
+                    </div>
+                  )}
                   {selectedMovieReviews.length === 0 && (
                     <div className="text-neutral-500 text-sm">No reviews yet.</div>
                   )}
@@ -2067,9 +2271,26 @@ const loginAgainstBackend = async (username: string, password: string) => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 text-yellow-400">
-                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                          <span className="font-semibold">{review.rating}/10</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 text-yellow-400">
+                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                            <span className="font-semibold">{review.rating}/10</span>
+                          </div>
+                          {review.userId !== currentUserId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-red-400 hover:text-red-200"
+                              onClick={() => {
+                                setDetailFlaggingReview(review);
+                                setDetailFlagReason("");
+                                setDetailFlagError(null);
+                              }}
+                            >
+                              <Flag className="h-3.5 w-3.5 mr-1" />
+                              Flag
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <p className="text-neutral-300">{review.comment || review.reviewText || ""}</p>
@@ -2321,10 +2542,11 @@ const loginAgainstBackend = async (username: string, password: string) => {
 
                   {isAdmin ? (
                     <AdminDashboard 
-                      users={users}
+                      users={annotatedUsers}
                       movies={movies}
                       reviews={allReviews as any}
                       watchlists={watchlists}
+                      flags={flags}
                     />
                   ) : currentUserObj ? (
                     <UserDashboard
@@ -2408,6 +2630,41 @@ const loginAgainstBackend = async (username: string, password: string) => {
         userReview={currentUserReview}
         onFlagReview={handleFlagReview}
       />
+
+      <AlertDialog
+        open={Boolean(detailFlaggingReview)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDetailFlagDialog();
+          }
+        }}
+      >
+        <AlertDialogContent className="bg-neutral-900 border-neutral-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Flag Review</AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-300">
+              Tell us why the review from {detailFlaggingReview?.username || detailFlaggingReview?.userName || "this user"}
+              {selectedMovie ? ` for "${selectedMovie.title}"` : ""} should be moderated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={detailFlagReason}
+            onChange={(e) => setDetailFlagReason(e.target.value)}
+            placeholder="e.g., Spam, hateful content, spoilers…"
+            className="bg-neutral-800 border-neutral-700"
+            rows={4}
+          />
+          {detailFlagError && (
+            <p className="text-sm text-red-400">{detailFlagError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-neutral-800 border-neutral-700">Cancel</AlertDialogCancel>
+            <Button onClick={handleSubmitDetailFlag} disabled={isSubmittingDetailFlag}>
+              {isSubmittingDetailFlag ? "Submitting..." : "Submit Flag"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
