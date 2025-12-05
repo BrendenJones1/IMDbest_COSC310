@@ -31,7 +31,12 @@ const ADMIN_DEMO = { label: "Admin", email: "admin@demo.com", password: "passwor
 
 const DEMO_ACCOUNTS = [...USER_DEMOS, ADMIN_DEMO];
 
-export function LoginScreen({ onLogin, onSwitchToRegister, errorMessage }: LoginScreenProps) {
+export function LoginScreen({
+  onLogin,
+  onSwitchToRegister,
+  onBack,
+  errorMessage,
+}: LoginScreenProps) {
   const [selectedDemo, setSelectedDemo] = useState(DEMO_ACCOUNTS[0].email);
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);

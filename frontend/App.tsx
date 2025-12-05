@@ -129,7 +129,9 @@ const carouselSlides = [
   },
 ];
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL =
+  (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env
+    .VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const hashStringToPositiveInt = (value: string) => {
   let hash = 0;
@@ -220,6 +222,13 @@ const parseCount = (value: any): number => {
     return Number.isFinite(num) ? num : 0;
   }
   return 0;
+};
+
+const formatCompactNumber = (value: number | undefined | null) => {
+  if (!value || !Number.isFinite(value) || value <= 0) return "N/A";
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
+    value
+  );
 };
 
 const parseDurationMinutes = (raw: any): number => {
@@ -1180,25 +1189,25 @@ export default function App() {
   };
 
   const currentWatchlist = watchlists[currentUserId] || [];
+  const showDiscoverySections = activeSection === "home" && filterGenre === "all";
 
   // Get all unique genres
   const allGenres = Array.from(new Set(movies.flatMap((movie) => movie.genre)));
 
   const filteredMovies = movies
     .filter((movie) => {
+      const matchesGenre = filterGenre === "all" || movie.genre.includes(filterGenre);
       const matchesSearch =
-        searchQuery === "" ||
-        movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesGenre =
-        filterGenre === "all" || movie.genre.includes(filterGenre);
+        activeSection === "watchlist"
+          ? movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()))
+          : true;
 
       if (activeSection === "watchlist") {
         return matchesSearch && matchesGenre && currentWatchlist.includes(movie.id);
       }
 
-      return matchesSearch && matchesGenre;
+      return matchesGenre;
     })
     .sort((a, b) => {
       if (sortBy === "title") {
@@ -1421,7 +1430,7 @@ export default function App() {
                   <p className="text-neutral-400 text-sm">User Rating</p>
                   <p className="text-3xl text-yellow-400 font-semibold">{detailRating.toFixed(1)}</p>
                   <p className="text-neutral-400 text-sm mt-1">
-                    User Reviews: {detailUserReviews > 0 ? detailUserReviews.toLocaleString() : "N/A"}
+                    User Reviews: {formatCompactNumber(detailUserReviews)}
                   </p>
                 </div>
               </div>
@@ -1753,7 +1762,7 @@ export default function App() {
                 </>
               )}
 
-              {(activeSection === "watchlist" || searchQuery !== "" || filterGenre !== "all") && (
+              {(activeSection === "watchlist" || filterGenre !== "all") && (
                 <>
                   <div className="mb-6">
                     <h2 className="text-2xl mb-1">{displayTitle}</h2>
