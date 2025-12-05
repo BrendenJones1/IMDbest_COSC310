@@ -5,7 +5,7 @@
         "flagger_id": 12,
         "flagged_user_id": 8,
         "reason": "Inappropriate language in review",
-        "status": "approved"
+        "status": "pending"
     },
     {
         "flag_id": 2,
@@ -355,7 +355,7 @@
         "flagger_id": 641455522,
         "flagged_user_id": 292870822,
         "reason": "annoying",
-        "status": "approved",
+        "status": "pending",
         "date_created": "2025-12-03T18:58:48.273232"
     },
     {
@@ -391,7 +391,7 @@
         "flagger_id": 1808500496,
         "flagged_user_id": 292870822,
         "reason": "bad",
-        "status": "approved",
+        "status": "pending",
         "date_created": "2025-12-03T21:36:05.111815"
     },
     {
@@ -400,7 +400,7 @@
         "flagger_id": 1808500496,
         "flagged_user_id": 292870822,
         "reason": "spam",
-        "status": "rejected",
+        "status": "pending",
         "date_created": "2025-12-03T21:44:57.662147"
     },
     {
@@ -418,34 +418,7 @@
         "flagger_id": 1515277122,
         "flagged_user_id": 2037994039,
         "reason": "annoying",
-        "status": "rejected",
+        "status": "pending",
         "date_created": "2025-12-04T13:22:16.735956"
-    },
-    {
-        "flag_id": 48,
-        "review_id": 2134820254,
-        "flagger_id": 2037994039,
-        "flagged_user_id": 92903041,
-        "reason": "spam",
-        "status": "rejected",
-        "date_created": "2025-12-04T23:27:40.374150"
-    },
-    {
-        "flag_id": 49,
-        "review_id": 1739488718,
-        "flagger_id": 2037994039,
-        "flagged_user_id": 3186315,
-        "reason": "hate",
-        "status": "approved",
-        "date_created": "2025-12-04T23:31:22.843505"
-    },
-    {
-        "flag_id": 50,
-        "review_id": 193553530,
-        "flagger_id": 3186315,
-        "flagged_user_id": 1438061879,
-        "reason": "very bad",
-        "status": "approved",
-        "date_created": "2025-12-04T23:34:36.982802"
     }
 ]
