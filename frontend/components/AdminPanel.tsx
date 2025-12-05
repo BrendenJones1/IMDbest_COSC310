@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Trash2, Plus, Star, Shield, MinusCircle, Flag, AlertTriangle, Users as UsersIcon, Film as FilmIcon, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -187,28 +187,28 @@ export function AdminPanel({
         <TabsList className="bg-neutral-900/70 border border-neutral-700 shadow-inner">
           <TabsTrigger
             value="movies"
-            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             <FilmIcon className="h-4 w-4" />
             Movies
           </TabsTrigger>
           <TabsTrigger
             value="users"
-            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             <UsersIcon className="h-4 w-4" />
             Users
           </TabsTrigger>
           <TabsTrigger
             value="reviews"
-            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             <MessageSquare className="h-4 w-4" />
             Reviews
           </TabsTrigger>
           <TabsTrigger
             value="flags"
-            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             <Flag className="h-4 w-4" />
             Flags & Penalties
@@ -354,7 +354,7 @@ export function AdminPanel({
                               <Badge
                                 key={g}
                                 variant="outline"
-                                className="border-neutral-700 text-xs"
+                                className="border-neutral-600 bg-neutral-800/70 text-xs text-neutral-100"
                               >
                                 {g}
                               </Badge>
@@ -362,7 +362,7 @@ export function AdminPanel({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-neutral-700">
+                          <Badge variant="outline" className="border-neutral-600 bg-neutral-800/70 text-neutral-100">
                             {reviewCount}
                           </Badge>
                         </TableCell>
