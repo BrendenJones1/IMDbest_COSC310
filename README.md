@@ -35,6 +35,44 @@ Then follow the provided link to the website.
 
 By default the API listens on `http://localhost:8000`. All responses are JSON. The service is stateless and persists to JSON files under `backend/data/`.
 
+## Docker (backend + frontend)
+
+Build images:
+```bash
+docker compose build
+```
+
+Run containers:
+```bash
+docker compose up -d
+```
+
+Services:
+- Backend (FastAPI): http://localhost:8000
+- Frontend (Vite build served by nginx): http://localhost:5173
+
+Notes:
+- The frontend image is built with `VITE_API_BASE_URL=http://localhost:8000` so the browser can reach the API from your host.
+- If you need to change the API URL at build time:
+  ```bash
+  docker compose build --build-arg VITE_API_BASE_URL=http://localhost:8000 frontend
+  ```
+
+Verify:
+```bash
+# Check containers
+docker compose ps
+
+# Backend health
+curl -i http://localhost:8000/search?q=&limit=1
+```
+
+Logs:
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
 ## Search
 - `GET /search?q=<term>&limit=20&sort_by=title|rating|year&sort_order=asc|desc`
   - Example: `curl "http://localhost:8000/search?q=thor&limit=5"`

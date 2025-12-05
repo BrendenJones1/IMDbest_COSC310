@@ -28,7 +28,8 @@
       "upvotes": 611,
       "downvotes": 0,
       "created_at": "16 December 2021",
-      "updated_at": "16 December 2021"
+      "updated_at": "2025-12-05T07:11:48.463529+00:00",
+      "voters": {}
     },
     "andrewchristianjr": {
       "user_id": "andrewchristianjr",
@@ -98,7 +99,17 @@
       "upvotes": 351,
       "downvotes": 0,
       "created_at": "15 December 2021",
-      "updated_at": "15 December 2021"
+      "updated_at": "2025-12-05T07:11:44.483987+00:00",
+      "voters": {}
+    },
+    "Alice": {
+      "user_id": "Alice",
+      "rating": 8.0,
+      "review_text": "Amazing movie!",
+      "upvotes": 0,
+      "downvotes": 0,
+      "created_at": "2025-12-05T07:11:31.004942+00:00",
+      "updated_at": "2025-12-05T07:11:31.004942+00:00"
     }
   }
 }
