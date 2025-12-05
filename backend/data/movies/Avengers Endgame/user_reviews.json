@@ -8,7 +8,8 @@
       "upvotes": 3258,
       "downvotes": 0,
       "created_at": "26 April 2019",
-      "updated_at": "26 April 2019"
+      "updated_at": "2025-12-05T07:19:47.253525+00:00",
+      "voters": {}
     },
     "larshoeijmans": {
       "user_id": "larshoeijmans",
@@ -98,7 +99,17 @@
       "upvotes": 761,
       "downvotes": 0,
       "created_at": "24 April 2019",
-      "updated_at": "24 April 2019"
+      "updated_at": "2025-12-05T07:13:41.776563+00:00",
+      "voters": {}
+    },
+    "Alice": {
+      "user_id": "Alice",
+      "rating": 6.0,
+      "review_text": "Great movie!",
+      "upvotes": 0,
+      "downvotes": 0,
+      "created_at": "2025-12-05T07:09:14.368235+00:00",
+      "updated_at": "2025-12-05T07:19:54.446516+00:00"
     }
   }
 }

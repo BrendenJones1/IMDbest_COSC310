@@ -2,8 +2,17 @@ import { useEffect, useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 
-const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+const resolveApiBaseUrl = () => {
+  const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) return envUrl.trim();
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8000`;
+  }
+  return "http://localhost:8000";
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 
 interface MyMovieNoteProps {
