@@ -23,6 +23,9 @@ import {
   AlertDialogTitle,
   AlertDialogCancel,
 } from "./ui/alert-dialog";
+import { MyMovieNote } from "./MyMovieNote";
+
+
 
 interface UserReview {
   movieId: string;
@@ -395,30 +398,39 @@ export function MovieDialog({
             </div>
           )}
 
-          {isReviewLoading ? (
+                    {isReviewLoading ? (
             <div className="text-neutral-400">Loading reviews…</div>
           ) : sortedReviews.length === 0 ? (
             <div className="text-neutral-400">No reviews yet.</div>
           ) : (
             <div className="space-y-4">
               {sortedReviews.slice(0, visibleCount).map((review) => (
-                <div key={`${review.userId}-${review.createdAt}`} className="bg-neutral-800 rounded-lg p-4">
+                <div
+                  key={`${review.userId}-${review.createdAt}`}
+                  className="bg-neutral-800 rounded-lg p-4"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm">
-                        {(review.username || review.userId || "?").charAt(0).toUpperCase()}
+                        {(review.username || review.userId || "?")
+                          .charAt(0)
+                          .toUpperCase()}
                       </div>
                       <div className="flex flex-col">
                         <span>{review.username || review.userId}</span>
                         <span className="text-xs text-neutral-500">
-                          {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ""}
+                          {review.createdAt
+                            ? new Date(review.createdAt).toLocaleDateString()
+                            : ""}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                        <span className="text-yellow-500">{review.rating}/10</span>
+                        <span className="text-yellow-500">
+                          {review.rating}/10
+                        </span>
                       </div>
                       {review.username !== currentUserName && (
                         <Button
@@ -439,15 +451,17 @@ export function MovieDialog({
                       )}
                     </div>
                   </div>
+
                   <p className="text-neutral-300 whitespace-pre-line">
                     {expandedReviews.has(review.userId)
                       ? review.reviewText
                       : (() => {
                           const lines = review.reviewText.split("\n");
                           if (lines.length <= 5) return review.reviewText;
-                          return lines.slice(0, 5).join("\n") + "\n...";
+                          return `${lines.slice(0, 5).join("\n")}\n...`;
                         })()}
                   </p>
+
                   {review.reviewText.split("\n").length > 5 && (
                     <Button
                       variant="ghost"
@@ -465,33 +479,60 @@ export function MovieDialog({
                         });
                       }}
                     >
-                      {expandedReviews.has(review.userId) ? "Show less" : "Show more"}
+                      {expandedReviews.has(review.userId)
+                        ? "Show less"
+                        : "Show more"}
                     </Button>
                   )}
+
                   <div className="mt-3 flex items-center gap-3 text-sm text-neutral-300">
                     <Button
                       variant="secondary"
                       size="sm"
                       className="h-8"
-                      disabled={pendingVoteFor === `up-${review.userId}` || review.userId === currentUserId}
+                      disabled={
+                        pendingVoteFor === `up-${review.userId}` ||
+                        review.userId === currentUserId
+                      }
                       onClick={() => handleVote("up", review)}
                     >
                       <ThumbsUp className="h-4 w-4 mr-1" />
                       {review.upvotes}
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-8"
+                      disabled={
+                        pendingVoteFor === `down-${review.userId}` ||
+                        review.userId === currentUserId
+                      }
+                      onClick={() => handleVote("down", review)}
+                    >
+                      <ThumbsDown className="h-4 w-4 mr-1" />
+                      {review.downvotes}
+                    </Button>
                   </div>
                 </div>
               ))}
+
               {visibleCount < sortedReviews.length && (
                 <div className="flex justify-center">
                   <Button
                     variant="secondary"
-                    onClick={() => setVisibleCount((v) => Math.min(sortedReviews.length, v + 3))}
+                    onClick={() =>
+                      setVisibleCount((v) =>
+                        Math.min(sortedReviews.length, v + 3)
+                      )
+                    }
                   >
                     Show more
                   </Button>
                 </div>
               )}
+
+              {/* ★ MyMovieNote 放在这里 */}
+              <MyMovieNote userId={currentUserId} movieId={movie.id} />
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 from typing import List, Literal, Optional, TypedDict
 from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
+from backend.schemas.review import ReviewOut
 
 class User(BaseModel):
     id: str
@@ -50,3 +51,13 @@ class CurrentUser(TypedDict):
     username: str
     role: str
     token_version: int
+
+
+class UserExportStats(BaseModel):
+    reviewCount: int
+
+
+class UserExport(BaseModel):
+    user: UserPublic
+    stats: UserExportStats
+    reviews: List[ReviewOut]

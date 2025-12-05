@@ -27,6 +27,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "./components/ui/carousel";
+import { MyMovieNote } from "./components/MyMovieNote";
+
 
 // Mock movie data
 const initialMovies: Movie[] = [
@@ -765,7 +767,9 @@ interface FlagReviewPayload {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isDownloadingData, setIsDownloadingData] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -791,6 +795,7 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const showDiscoverySections = true;
   const usersRef = useRef<User[]>(mockUsers);
   const [draggingWatchlistId, setDraggingWatchlistId] = useState<string | null>(null);
   const [reviewsByMovie, setReviewsByMovie] = useState<Record<string, UserReview[]>>({});
@@ -1162,6 +1167,102 @@ export default function App() {
           : [...userList, movieId],
       };
     });
+  };
+
+  const handleAddReview = (movieId: string, rating: number, comment: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      return;
+    }
+    const newReview: Review = {
+      id: movieId,
+      userId: currentUserId,
+      userName: currentUser,
+      rating,
+      comment,
+      date: new Date().toISOString().split("T")[0],
+    };
+    setReviews((prev) => [...prev, newReview]);
+  };
+
+   const handleDownloadUserData = async () => {
+    setDownloadError(null);
+    setIsDownloadingData(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      const headers: HeadersInit = { Accept: "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+
+      const response = await fetch(`${API_BASE_URL}/users/me/export`, {
+        method: "GET",
+        headers,
+
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
+
+      // Get the file as a Blob
+      const blob = await response.blob();
+
+      // Try to read filename from Content-Disposition, default to my-data.json
+      const cd = response.headers.get("Content-Disposition") || "";
+      let filename = "my-data.json";
+      const match = /filename="?([^"]+)"?/.exec(cd);
+      if (match?.[1]) {
+        filename = match[1];
+      }
+
+      // Create a temporary link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download user data", err);
+      setDownloadError("Unable to download your data right now. Please try again later.");
+    } finally {
+      setIsDownloadingData(false);
+    }
+  };
+  
+const loginAgainstBackend = async (username: string, password: string) => {
+  const url = new URL(`${API_BASE_URL}/users/login`);
+  url.searchParams.set("username", username);
+  url.searchParams.set("password", password);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend login failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  const token = data.token as string | undefined; // backend returns { token, user }
+  if (!token) {
+    throw new Error("No token in login response");
+  }
+
+  localStorage.setItem("accessToken", token);
+};
+  const handleSubmitDetailReview = () => {
+    if (!selectedMovie || !detailReviewInput.comment.trim()) return;
+    handleAddReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment.trim());
+    setDetailReviewInput({ rating: 5, comment: "" });
   };
 
   const handleFlagReview = async ({
@@ -1608,7 +1709,9 @@ export default function App() {
         <RegisterScreen
           onRegister={(data) => {
             setAuthError(null);
-            const emailTaken = users.some((u) => u.email.toLowerCase() === data.email.toLowerCase());
+            const emailTaken = users.some(
+              (u) => u.email.toLowerCase() === data.email.toLowerCase()
+            );
             if (emailTaken) {
               setAuthError("An account already exists with that email.");
               return;
@@ -1630,8 +1733,10 @@ export default function App() {
               isFlagged: false,
               penalties: 0,
               isAdmin: data.isAdmin,
+              // if you keep this field, make sure User has `numericId: number`
               numericId: hashStringToPositiveInt(uniqueId),
             };
+
             setUsers((prev) => [...prev, newUser]);
             setCurrentUser(data.name);
             setIsAuthenticated(true);
@@ -1660,21 +1765,29 @@ export default function App() {
               username: usernameForLogin,
               password,
             });
-            const response = await fetch(`${API_BASE_URL}/users/login?${params.toString()}`, {
-              method: "POST",
-            });
+
+            const response = await fetch(
+              `${API_BASE_URL}/users/login?${params.toString()}`,
+              {
+                method: "POST",
+              }
+            );
             const payload = await response.json();
             if (!response.ok) {
-              throw new Error(payload?.detail || "Unable to log in. Please check your credentials.");
+              throw new Error(
+                payload?.detail || "Unable to log in. Please check your credentials."
+              );
             }
 
             const backendUser = mapBackendUser(payload.user);
             const tokenRole = decodeRoleFromToken(payload.token);
+
             const fallbackUser = usersRef.current.find(
               (u) =>
                 u.email.toLowerCase() === backendUser.email.toLowerCase() ||
                 u.name.toLowerCase() === backendUser.name.toLowerCase()
             );
+
             const mergedUser: User = {
               ...fallbackUser,
               ...backendUser,
@@ -1684,19 +1797,30 @@ export default function App() {
                 backendUser.isAdmin,
             };
 
+            // store JWT (your setAuthToken should also sync to localStorage)
             setAuthToken(payload.token);
             setCurrentUser(mergedUser.name);
             setIsAuthenticated(true);
             setActiveSection("home");
+
             setUsers((prev) => {
-              const existing = prev.find((u) => u.name.toLowerCase() === mergedUser.name.toLowerCase());
+              const existing = prev.find(
+                (u) => u.name.toLowerCase() === mergedUser.name.toLowerCase()
+              );
               if (existing) {
-                return prev.map((u) => (u.name.toLowerCase() === mergedUser.name.toLowerCase() ? mergedUser : u));
+                return prev.map((u) =>
+                  u.name.toLowerCase() === mergedUser.name.toLowerCase()
+                    ? mergedUser
+                    : u
+                );
               }
               return [...prev, mergedUser];
             });
           } catch (error) {
-            const message = error instanceof Error ? error.message : "Login failed. Please try again.";
+            const message =
+              error instanceof Error
+                ? error.message
+                : "Login failed. Please try again.";
             setAuthError(message);
           }
         }}
@@ -1712,8 +1836,8 @@ export default function App() {
         errorMessage={authError}
       />
     );
-  }
-
+  } 
+  
   return (
     <div className="flex h-screen bg-neutral-950 text-white">
       <Sidebar
@@ -1942,6 +2066,10 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              <MyMovieNote
+                userId={currentUserId}
+                movieId={selectedMovie.id}
+              />
             </div>
           ) : activeSection === "search" ? (
             <div className="space-y-6">
@@ -2066,19 +2194,31 @@ export default function App() {
                   </div>
                 )}
                   </div>
-                  <div className="ml-4">
+                  <div className="ml-4 flex items-center gap-2">
                     {isAuthenticated ? (
-                      <UserSwitcher
-                        currentUser={currentUser}
-                        currentUserEmail={currentUserObj?.email}
-                        onSignOut={() => {
-                          setIsAuthenticated(false);
-                          setAuthMode("login");
-                          setAuthError(null);
-                          setActiveSection("home");
-                          setAuthToken(null);
-                        }}
-                      />
+                      <>
+                        <UserSwitcher
+                          currentUser={currentUser}
+                          currentUserEmail={currentUserObj?.email}
+                          onSignOut={() => {
+                            setIsAuthenticated(false);
+                            setAuthMode("login");
+                            setAuthError(null);
+                            setActiveSection("home");
+                            setAuthToken(null); // clear JWT/localStorage
+                          }}
+                        />
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-neutral-900 border-neutral-800 text-xs"
+                          onClick={handleDownloadUserData}
+                          disabled={isDownloadingData}
+                        >
+                          {isDownloadingData ? "Downloading..." : "Download my data"}
+                        </Button>
+                      </>
                     ) : (
                       <Button
                         variant="outline"
@@ -2104,6 +2244,13 @@ export default function App() {
                   {movieError}
                 </div>
               )}
+
+              {downloadError && (
+                <div className="mb-6 rounded border border-red-800 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {downloadError}
+                </div>
+              )}
+
 
               {isLoadingMovies && !movieError && (
                 <div className="mb-6 text-sm text-neutral-400">Loading movies from backend...</div>
