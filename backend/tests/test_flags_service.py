@@ -1,6 +1,7 @@
 import os
 import tempfile
 from unittest import mock
+from contextlib import contextmanager
 
 from backend.services.flags_service import FlagsService
 
@@ -21,9 +22,11 @@ def test_add_and_update_flag():
     assert updated["status"] == "approved"
 
 
-def test_update_flag_status_with_mock(monkeypatch, tmp_path):
+def test_update_flag_status_with_mock(tmp_path):
     """
-    Verify update_flag_status mutates the correct flag and persists via the save hook.
+    Verify update_flag_status mutates the correct flag when using the repo.transaction()
+    context manager. We provide a fake repo that yields an in-memory list so no filesystem
+    IO happens and we can inspect the mutated list.
     """
     service = FlagsService(str(tmp_path / "flags.json"))
 
@@ -31,12 +34,26 @@ def test_update_flag_status_with_mock(monkeypatch, tmp_path):
         {"flag_id": 1, "status": "pending"},
         {"flag_id": 2, "status": "pending"},
     ]
-    monkeypatch.setattr(service, "_load", lambda: in_memory_flags)
-    save_spy = mock.MagicMock()
-    monkeypatch.setattr(service, "_save", save_spy)
 
+    # Create a fake repo that exposes file_path (so _ensure_repo() won't replace it)
+    # and a transaction() context manager that yields our in_memory_flags.
+    class FakeRepo:
+        def __init__(self, data, file_path):
+            self._data = data
+            self.file_path = file_path
+
+        @contextmanager
+        def transaction(self):
+            # This mimics FlagsRepository.transaction: yield data, caller mutates it,
+            # and on successful exit we'd persist. For the test we just yield the list.
+            yield self._data
+
+    # Attach the fake repo to the service and ensure service won't overwrite it
+    service.repo = FakeRepo(in_memory_flags, service.file)
+
+    # Act
     updated_flag = service.update_flag_status(2, "approved")
 
-    assert updated_flag == in_memory_flags[1]
-    assert updated_flag["status"] == "approved"
-    save_spy.assert_called_once_with(in_memory_flags)
+    # Assert: returned object is the same element in the in-memory list, and was mutated
+    assert updated_flag is in_memory_flags[1]
+    assert in_memory_flags[1]["status"] == "approved"

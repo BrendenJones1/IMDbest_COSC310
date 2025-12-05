@@ -72,7 +72,7 @@ interface AdminPanelProps {
   onDeleteUser: (userId: string) => void;
   onFlagUser: (userId: string, reason: string) => void;
   onUnflagUser: (userId: string) => void;
-  onAddPenalty: (userId: string) => void;
+  onAddPenalty: (userId: string, reason: string) => Promise<void>;
   onRemovePenalty: (userId: string) => void;
 }
 
@@ -95,6 +95,10 @@ export function AdminPanel({
   const [editingMovie, setEditingMovie] = useState<Movie | null>(null);
   const [flaggingUser, setFlaggingUser] = useState<User | null>(null);
   const [flagReason, setFlagReason] = useState("");
+  const [penalizingUser, setPenalizingUser] = useState<User | null>(null);
+  const [penaltyReason, setPenaltyReason] = useState("");
+  const [penaltyError, setPenaltyError] = useState<string | null>(null);
+  const [isSubmittingPenalty, setIsSubmittingPenalty] = useState(false);
   const [newMovie, setNewMovie] = useState({
     title: "",
     year: 2024,
@@ -107,6 +111,34 @@ export function AdminPanel({
 
   const flaggedUsers = users.filter((u) => u.isFlagged);
   const usersWithPenalties = users.filter((u) => u.penalties > 0);
+
+  const openPenaltyDialog = (user: User) => {
+    setPenalizingUser(user);
+    setPenaltyReason(user.flagReason || "");
+    setPenaltyError(null);
+  };
+
+  const handlePenaltySubmit = async () => {
+    if (!penalizingUser) return;
+    const reason = penaltyReason.trim();
+    if (!reason) {
+      setPenaltyError("Please provide a reason for this penalty.");
+      return;
+    }
+    setIsSubmittingPenalty(true);
+    try {
+      await onAddPenalty(penalizingUser.id, reason);
+      setPenalizingUser(null);
+      setPenaltyReason("");
+      setPenaltyError(null);
+    } catch (error) {
+      setPenaltyError(
+        error instanceof Error ? error.message : "Unable to issue penalty."
+      );
+    } finally {
+      setIsSubmittingPenalty(false);
+    }
+  };
 
   const handleAddMovie = () => {
     if (newMovie.title) {
@@ -152,20 +184,32 @@ export function AdminPanel({
       </div>
 
       <Tabs defaultValue="movies" className="w-full">
-        <TabsList className="bg-neutral-900 border-neutral-800">
-          <TabsTrigger value="movies" className="gap-2">
+        <TabsList className="bg-neutral-900/70 border border-neutral-700 shadow-inner">
+          <TabsTrigger
+            value="movies"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+          >
             <FilmIcon className="h-4 w-4" />
             Movies
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2">
+          <TabsTrigger
+            value="users"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+          >
             <UsersIcon className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="reviews" className="gap-2">
+          <TabsTrigger
+            value="reviews"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+          >
             <MessageSquare className="h-4 w-4" />
             Reviews
           </TabsTrigger>
-          <TabsTrigger value="flags" className="gap-2">
+          <TabsTrigger
+            value="flags"
+            className="gap-2 px-4 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-black"
+          >
             <Flag className="h-4 w-4" />
             Flags & Penalties
           </TabsTrigger>
@@ -499,7 +543,7 @@ export function AdminPanel({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-orange-500 hover:text-orange-400"
-                            onClick={() => onAddPenalty(user.id)}
+                            onClick={() => openPenaltyDialog(user)}
                             title="Add penalty"
                           >
                             <Plus className="h-4 w-4" />
@@ -676,15 +720,26 @@ export function AdminPanel({
                             </div>
                             <p className="text-sm text-neutral-300">{user.email}</p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-500 hover:text-green-400"
-                            onClick={() => onUnflagUser(user.id)}
-                          >
-                            <Shield className="h-4 w-4 mr-1" />
-                            Unflag
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-orange-500 hover:text-orange-400"
+                              onClick={() => openPenaltyDialog(user)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Penalty
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-500 hover:text-green-400"
+                              onClick={() => onUnflagUser(user.id)}
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Unflag
+                            </Button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <div>
@@ -760,7 +815,7 @@ export function AdminPanel({
                               variant="ghost"
                               size="sm"
                               className="text-orange-500 hover:text-orange-400"
-                              onClick={() => onAddPenalty(user.id)}
+                              onClick={() => openPenaltyDialog(user)}
                               title="Add penalty"
                             >
                               <Plus className="h-4 w-4" />
@@ -786,6 +841,54 @@ export function AdminPanel({
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={Boolean(penalizingUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPenalizingUser(null);
+            setPenaltyReason("");
+            setPenaltyError(null);
+          }
+        }}
+      >
+        <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
+          <DialogHeader>
+            <DialogTitle>Issue Penalty</DialogTitle>
+            <DialogDescription className="text-neutral-300">
+              Provide a brief reason for issuing a penalty to {penalizingUser?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Penalty reason</Label>
+              <Textarea
+                value={penaltyReason}
+                onChange={(e) => setPenaltyReason(e.target.value)}
+                placeholder="e.g., Repeated policy violations, toxic reviews..."
+                className="bg-neutral-800 border-neutral-700 mt-2"
+              />
+            </div>
+            {penaltyError && <p className="text-sm text-red-400">{penaltyError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                className="bg-neutral-800 border-neutral-700 text-white hover:bg-neutral-700"
+                onClick={() => {
+                  setPenalizingUser(null);
+                  setPenaltyReason("");
+                  setPenaltyError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handlePenaltySubmit} disabled={isSubmittingPenalty}>
+                {isSubmittingPenalty ? "Issuing..." : "Issue Penalty"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

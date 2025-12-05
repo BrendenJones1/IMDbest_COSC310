@@ -1,3 +1,8 @@
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from threading import RLock  # lock for concurrent access
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -6,6 +11,9 @@ from backend.repositories.watchlist_repo import WatchlistRepository
 
 # Path to the JSON data file (tests monkeypatch this)
 WATCHLIST_FILE = Path(__file__).resolve().parents[1] / "data" / "watchlist.json"
+
+# module-level lock to protect load/save + read-modify-write sequences
+_WATCHLIST_LOCK = RLock()
 
 
 def _get_repo() -> WatchlistRepository:
@@ -27,37 +35,28 @@ def _now_utc_iso() -> str:
 
 def load_watchlists() -> Dict[str, List[dict]]:
     """
-    Load the full watchlist data structure from disk via the repository.
-
-    Tests call this directly and also monkeypatch WATCHLIST_FILE, so this
-    function must respect the current WATCHLIST_FILE each time it is called.
+    Load all user watchlists from the backing JSON file, or return an empty structure.
+    Protected by a lock to avoid concurrent read/write races.
     """
-    repo = _get_repo()
-    data: Any = repo.load()
-
-    # Backwards compatibility: some older implementations may have stored
-    # just a list instead of {"users": [...]}
-    if isinstance(data, list):
-        data = {"users": data}
-
-    if "users" not in data:
-        data["users"] = []
-
-    return data
+    with _WATCHLIST_LOCK:
+        if not WATCHLIST_FILE.exists():
+            return {"users": []}
+        with WATCHLIST_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
 
 
 def save_watchlists(data: Dict[str, Any]) -> None:
     """
-    Save the full watchlist data structure to disk via the repository.
-
-    Tests also monkeypatch this (fault injection), so keep it as a separate
-    function that add/remove can call.
+    Persist the provided watchlist data to the backing JSON file.
+    Writes are atomic via a temp file + os.replace and protected by a lock.
     """
-    repo = _get_repo()
-    repo.save(data)
+    WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = WATCHLIST_FILE.with_name(WATCHLIST_FILE.name + ".tmp")
 
-
-# ----------------- Public service functions -----------------
+    with _WATCHLIST_LOCK:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp_path, WATCHLIST_FILE)
 
 
 def get_user_watchlist(user_id: str) -> List[dict]:
@@ -74,70 +73,52 @@ def get_user_watchlist(user_id: str) -> List[dict]:
 
 def add_to_watchlist(user_id: str, movie_title: str) -> Dict[str, str]:
     """
-    Add a movie to a user's watchlist.
-
-    Returns:
-        {"message": "New user added with first movie"}  if user did not exist
-        {"message": "Movie added"}                      if user exists and movie is new
-        {"message": "Movie already in watchlist"}       if duplicate
+    Add a movie to a user's watchlist, creating the user entry if necessary.
+    The entire read-modify-save sequence is protected by the watchlist lock
+    to avoid lost updates under concurrent access.
     """
-    data = load_watchlists()
+    with _WATCHLIST_LOCK:
+        data = load_watchlists()
 
-    # Look for existing user
-    for user in data["users"]:
-        if user["userId"] == user_id:
-            # Duplicate check
-            if any(m["movieTitle"] == movie_title for m in user["watchlist"]):
-                return {"message": "Movie already in watchlist"}
-
-            # Add new movie
-            user["watchlist"].append(
-                {
+        for user in data["users"]:
+            if user["userId"] == user_id:
+                if any(m["movieTitle"] == movie_title for m in user["watchlist"]):
+                    return {"message": "Movie already in watchlist"}
+                user["watchlist"].append({
                     "movieTitle": movie_title,
                     "addedAt": _now_utc_iso(),
-                }
-            )
-            save_watchlists(data)
-            return {"message": "Movie added"}
+                })
+                save_watchlists(data)
+                return {"message": "Movie added"}
 
-    # User not found → create new user with first movie
-    data["users"].append(
-        {
+        # No existing user; create a new watchlist for this user
+        data["users"].append({
             "userId": user_id,
-            "watchlist": [
-                {
-                    "movieTitle": movie_title,
-                    "addedAt": _now_utc_iso(),
-                }
-            ],
-        }
-    )
-    save_watchlists(data)
-    return {"message": "New user added with first movie"}
+            "watchlist": [{"movieTitle": movie_title, "addedAt": _now_utc_iso()}],
+        })
+        save_watchlists(data)
+        return {"message": "New user added with first movie"}
 
 
 def remove_from_watchlist(user_id: str, movie_title: str) -> Dict[str, str]:
     """
-    Remove a movie from a user's watchlist.
-
-    Returns:
-        {"message": "Movie removed"}      if movie existed and was removed
-        {"message": "Movie not found"}    if user exists but movie not in list
-        {"message": "User not found"}     if user does not exist
+    Remove a movie from a user's watchlist and report whether it was found.
+    The entire read-modify-save sequence is protected by the watchlist lock
+    to avoid lost updates under concurrent access.
     """
-    data = load_watchlists()
-
-    for user in data["users"]:
-        if user["userId"] == user_id:
-            before = len(user["watchlist"])
-            user["watchlist"] = [
-                m for m in user["watchlist"] if m["movieTitle"] != movie_title
-            ]
-            save_watchlists(data)
-
-            if len(user["watchlist"]) < before:
-                return {"message": "Movie removed"}
-            else:
-                return {"message": "Movie not found"}
-
-    return {"message": "User not found"}
+    with _WATCHLIST_LOCK:
+        data = load_watchlists()
+        for user in data["users"]:
+            if user["userId"] == user_id:
+                before = len(user["watchlist"])
+                user["watchlist"] = [
+                    m for m in user["watchlist"] if m["movieTitle"] != movie_title
+                ]
+                save_watchlists(data)
+                # Indicate if the movie was actually removed or not present
+                return {
+                    "message": "Movie removed"
+                    if len(user["watchlist"]) < before
+                    else "Movie not found"
+                }
+        return {"message": "User not found"}
