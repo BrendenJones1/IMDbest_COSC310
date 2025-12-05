@@ -26,6 +26,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "./components/ui/carousel";
+import { MyMovieNote } from "./components/MyMovieNote";
+
 
 // Mock movie data
 const initialMovies: Movie[] = [
@@ -791,6 +793,7 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const showDiscoverySections = true;
   const usersRef = useRef<User[]>(mockUsers);
   const [draggingWatchlistId, setDraggingWatchlistId] = useState<string | null>(null);
   const [reviewsByMovie, setReviewsByMovie] = useState<Record<string, UserReview[]>>({});
@@ -2028,6 +2031,10 @@ const loginAgainstBackend = async (username: string, password: string) => {
                   ))}
                 </div>
               </div>
+              <MyMovieNote
+                userId={currentUserId}
+                movieId={selectedMovie.id}
+              />
             </div>
           ) : activeSection === "search" ? (
             <div className="space-y-6">

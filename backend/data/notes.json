@@ -1,0 +1,12 @@
+[
+    {
+        "user_id": "1",
+        "movie_id": "123",
+        "content": "Great movie!"
+    },
+    {
+        "user_id": "alice",
+        "movie_id": "avengers-endgame",
+        "content": "1122"
+    }
+]
