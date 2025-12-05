@@ -1,10 +1,8 @@
-import { useMemo } from "react";
 import { Users, Flag, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Movie } from "./MovieCard";
-import type { ModerationFlag } from "../types/moderation";
 
 interface User {
   id: string;
@@ -15,7 +13,6 @@ interface User {
   penalties: number;
   flagReason?: string;
   isAdmin: boolean;
-  numericId: number;
 }
 
 interface Review {
@@ -36,20 +33,10 @@ interface AdminDashboardProps {
   movies: Movie[];
   reviews: Review[];
   watchlists: UserWatchlist;
-  flags: ModerationFlag[];
 }
 
-export function AdminDashboard({ users, movies, reviews, watchlists, flags }: AdminDashboardProps) {
-  const flaggedMap = useMemo(() => {
-    const ids = new Set<number>();
-    flags.forEach((flag) => {
-      if (flag.status?.toLowerCase() !== "rejected") {
-        ids.add(flag.flagged_user_id);
-      }
-    });
-    return ids;
-  }, [flags]);
-  const flaggedUsers = users.filter((u) => flaggedMap.has(u.numericId));
+export function AdminDashboard({ users, movies, reviews, watchlists }: AdminDashboardProps) {
+  const flaggedUsers = users.filter((u) => u.isFlagged);
   const totalPenalties = users.reduce((sum, u) => sum + u.penalties, 0);
   const usersWithPenalties = users.filter((u) => u.penalties > 0);
 

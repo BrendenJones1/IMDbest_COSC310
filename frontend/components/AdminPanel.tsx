@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Trash2, Plus, Star, Shield, MinusCircle, Flag, AlertTriangle, Users as UsersIcon, Film as FilmIcon, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -35,7 +35,6 @@ import {
 } from "./ui/alert-dialog";
 import { Badge } from "./ui/badge";
 import { Movie } from "./MovieCard";
-import type { ModerationFlag, FlagStatus } from "../types/moderation";
 
 interface Review {
   id: string;
@@ -55,7 +54,6 @@ interface User {
   penalties: number;
   flagReason?: string;
   isAdmin: boolean;
-  numericId: number;
 }
 
 interface UserWatchlist {
@@ -67,15 +65,14 @@ interface AdminPanelProps {
   users: User[];
   reviews: Review[];
   watchlists: UserWatchlist;
-  flags: ModerationFlag[];
   onDeleteMovie: (movieId: string) => void;
   onEditMovie: (movie: Movie) => void;
   onAddMovie: (movie: Omit<Movie, "id">) => void;
   onDeleteReview: (movieId: string, userId: string, date: string) => void;
   onDeleteUser: (userId: string) => void;
-  onFlagUser: (userId: string, reason: string) => Promise<void>;
-  onResolveFlag: (flagId: number, status: FlagStatus) => Promise<void>;
-  onAddPenalty: (userId: string, reason: string, options?: { flagId?: number }) => Promise<void>;
+  onFlagUser: (userId: string, reason: string) => void;
+  onUnflagUser: (userId: string) => void;
+  onAddPenalty: (userId: string, reason: string) => Promise<void>;
   onRemovePenalty: (userId: string) => void;
 }
 
@@ -84,14 +81,13 @@ export function AdminPanel({
   users,
   reviews,
   watchlists,
-  flags,
   onDeleteMovie,
   onEditMovie,
   onAddMovie,
   onDeleteReview,
   onDeleteUser,
   onFlagUser,
-  onResolveFlag,
+  onUnflagUser,
   onAddPenalty,
   onRemovePenalty,
 }: AdminPanelProps) {
@@ -103,11 +99,6 @@ export function AdminPanel({
   const [penaltyReason, setPenaltyReason] = useState("");
   const [penaltyError, setPenaltyError] = useState<string | null>(null);
   const [isSubmittingPenalty, setIsSubmittingPenalty] = useState(false);
-  const [penaltySourceFlagId, setPenaltySourceFlagId] = useState<number | null>(null);
-  const [isFlaggingUser, setIsFlaggingUser] = useState(false);
-  const [flagUserError, setFlagUserError] = useState<string | null>(null);
-  const [resolvingFlagId, setResolvingFlagId] = useState<number | null>(null);
-  const [flagActionError, setFlagActionError] = useState<string | null>(null);
   const [newMovie, setNewMovie] = useState({
     title: "",
     year: 2024,
@@ -118,49 +109,12 @@ export function AdminPanel({
     ageRating: "PG-13",
   });
 
-  const numericUserMap = useMemo(() => {
-    const map = new Map<number, User>();
-    users.forEach((user) => map.set(user.numericId, user));
-    return map;
-  }, [users]);
-
-  const flagsByUserId = useMemo(() => {
-    const grouped = new Map<string, ModerationFlag[]>();
-    flags.forEach((flag) => {
-      const mappedUser = numericUserMap.get(flag.flagged_user_id);
-      if (!mappedUser) return;
-      const existing = grouped.get(mappedUser.id) ?? [];
-      existing.push(flag);
-      grouped.set(mappedUser.id, existing);
-    });
-    return grouped;
-  }, [flags, numericUserMap]);
-
-  const pendingFlags = useMemo(
-    () => flags.filter((flag) => flag.status?.toLowerCase() === "pending"),
-    [flags]
-  );
-
-  const getActiveFlagsForUser = (userId: string) => {
-    const entries = flagsByUserId.get(userId) || [];
-    return entries.filter((flag) => flag.status?.toLowerCase() !== "rejected");
-  };
-
-  const getLatestActiveFlag = (userId: string) => {
-    const activeFlags = getActiveFlagsForUser(userId);
-    if (activeFlags.length === 0) {
-      return null;
-    }
-    return [...activeFlags].sort((a, b) => b.flag_id - a.flag_id)[0];
-  };
-
-  const flaggedUsers = users.filter((u) => getActiveFlagsForUser(u.id).length > 0);
+  const flaggedUsers = users.filter((u) => u.isFlagged);
   const usersWithPenalties = users.filter((u) => u.penalties > 0);
 
-  const openPenaltyDialog = (user: User, flagId?: number, defaultReason?: string) => {
+  const openPenaltyDialog = (user: User) => {
     setPenalizingUser(user);
-    setPenaltyReason((defaultReason ?? user.flagReason) || "");
-    setPenaltySourceFlagId(flagId ?? null);
+    setPenaltyReason(user.flagReason || "");
     setPenaltyError(null);
   };
 
@@ -173,33 +127,16 @@ export function AdminPanel({
     }
     setIsSubmittingPenalty(true);
     try {
-      await onAddPenalty(penalizingUser.id, reason, {
-        flagId: penaltySourceFlagId ?? undefined,
-      });
+      await onAddPenalty(penalizingUser.id, reason);
       setPenalizingUser(null);
       setPenaltyReason("");
       setPenaltyError(null);
-      setPenaltySourceFlagId(null);
     } catch (error) {
       setPenaltyError(
         error instanceof Error ? error.message : "Unable to issue penalty."
       );
     } finally {
       setIsSubmittingPenalty(false);
-    }
-  };
-
-  const handleResolveFlagClick = async (flagId: number, status: FlagStatus) => {
-    setFlagActionError(null);
-    setResolvingFlagId(flagId);
-    try {
-      await onResolveFlag(flagId, status);
-    } catch (error) {
-      setFlagActionError(
-        error instanceof Error ? error.message : "Unable to update flag status."
-      );
-    } finally {
-      setResolvingFlagId(null);
     }
   };
 
@@ -231,26 +168,11 @@ export function AdminPanel({
     }
   };
 
-  const handleManualFlagSubmit = async () => {
-    if (!flaggingUser) return;
-    const reason = flagReason.trim();
-    if (!reason) {
-      setFlagUserError("Please provide a reason for the flag.");
-      return;
-    }
-
-    setIsFlaggingUser(true);
-    setFlagUserError(null);
-    try {
-      await onFlagUser(flaggingUser.id, reason);
+  const handleFlagUser = () => {
+    if (flaggingUser && flagReason.trim()) {
+      onFlagUser(flaggingUser.id, flagReason);
       setFlaggingUser(null);
       setFlagReason("");
-    } catch (error) {
-      setFlagUserError(
-        error instanceof Error ? error.message : "Unable to flag this user right now."
-      );
-    } finally {
-      setIsFlaggingUser(false);
     }
   };
 
@@ -562,29 +484,22 @@ export function AdminPanel({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {user.isFlagged ? (
-                            (() => {
-                              const latestFlag = getLatestActiveFlag(user.id);
-                              return latestFlag ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-green-500 hover:text-green-400"
-                                  disabled={resolvingFlagId === latestFlag.flag_id}
-                                  onClick={() => handleResolveFlagClick(latestFlag.flag_id, "rejected")}
-                                  title="Dismiss latest flag"
-                                >
-                                  <Shield className="h-4 w-4" />
-                                </Button>
-                              ) : null;
-                            })()
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-500 hover:text-green-400"
+                              onClick={() => onUnflagUser(user.id)}
+                              title="Unflag user"
+                            >
+                              <Shield className="h-4 w-4" />
+                            </Button>
                           ) : (
-                            <Dialog
-                              open={flaggingUser?.id === user.id}
+                            <Dialog 
+                              open={flaggingUser?.id === user.id} 
                               onOpenChange={(open) => {
                                 if (!open) {
                                   setFlaggingUser(null);
                                   setFlagReason("");
-                                  setFlagUserError(null);
                                 }
                               }}
                             >
@@ -593,11 +508,7 @@ export function AdminPanel({
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-yellow-500 hover:text-yellow-400"
-                                  onClick={() => {
-                                    setFlaggingUser(user);
-                                    setFlagReason("");
-                                    setFlagUserError(null);
-                                  }}
+                                  onClick={() => setFlaggingUser(user)}
                                   title="Flag user"
                                 >
                                   <Flag className="h-4 w-4" />
@@ -619,12 +530,9 @@ export function AdminPanel({
                                       placeholder="e.g., Spam reviews, inappropriate content..."
                                       className="bg-neutral-800 border-neutral-700"
                                     />
-                                    {flagUserError && (
-                                      <p className="text-sm text-red-400 mt-2">{flagUserError}</p>
-                                    )}
                                   </div>
-                                  <Button onClick={handleManualFlagSubmit} className="w-full" disabled={isFlaggingUser}>
-                                    {isFlaggingUser ? "Flagging..." : "Flag User"}
+                                  <Button onClick={handleFlagUser} className="w-full">
+                                    Flag User
                                   </Button>
                                 </div>
                               </DialogContent>
@@ -635,10 +543,7 @@ export function AdminPanel({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-orange-500 hover:text-orange-400"
-                            onClick={() => {
-                              const latestFlag = getLatestActiveFlag(user.id);
-                              openPenaltyDialog(user, latestFlag?.flag_id ?? undefined, latestFlag?.reason);
-                            }}
+                            onClick={() => openPenaltyDialog(user)}
                             title="Add penalty"
                           >
                             <Plus className="h-4 w-4" />
@@ -788,96 +693,6 @@ export function AdminPanel({
 
         {/* Flags & Penalties Management */}
         <TabsContent value="flags" className="space-y-4">
-          <Card className="bg-neutral-900 border-neutral-800 text-white">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-blue-400" />
-                <div>
-                  <CardTitle>Flag Queue</CardTitle>
-                  <p className="text-sm text-neutral-300 mt-1">
-                    {pendingFlags.length} pending {pendingFlags.length === 1 ? "flag" : "flags"}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {flagActionError && (
-                <div className="mb-3 rounded border border-red-800 bg-red-900/30 px-3 py-2 text-sm text-red-200">
-                  {flagActionError}
-                </div>
-              )}
-              {pendingFlags.length > 0 ? (
-                <div className="space-y-3">
-                  {pendingFlags.map((flag) => {
-                    const flaggedUser = numericUserMap.get(flag.flagged_user_id);
-                    const flagDate = flag.date_created
-                      ? new Date(flag.date_created).toLocaleString()
-                      : "Unknown";
-                    return (
-                      <div key={flag.flag_id} className="p-3 bg-neutral-800/60 rounded-lg border border-neutral-700">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">
-                                {flaggedUser?.name || `User #${flag.flagged_user_id}`}
-                              </span>
-                              <Badge variant="outline" className="border-neutral-600 text-neutral-200">
-                                Review #{flag.review_id}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-neutral-400 mt-1">Flagged on {flagDate}</p>
-                          </div>
-                          <Badge variant="destructive" className="uppercase text-[10px]">
-                            {flag.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-neutral-200 mt-3">{flag.reason}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-400 hover:text-green-300"
-                            disabled={resolvingFlagId === flag.flag_id}
-                            onClick={() => handleResolveFlagClick(flag.flag_id, "approved")}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-400 hover:text-red-300"
-                            disabled={resolvingFlagId === flag.flag_id}
-                            onClick={() => handleResolveFlagClick(flag.flag_id, "rejected")}
-                          >
-                            Dismiss
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="text-orange-200 bg-orange-900/40 border border-orange-800 hover:bg-orange-800/50"
-                            disabled={!flaggedUser}
-                            onClick={() => {
-                              if (flaggedUser) {
-                                openPenaltyDialog(flaggedUser, flag.flag_id, flag.reason);
-                              }
-                            }}
-                          >
-                            Add penalty
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-neutral-500">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p>No pending flags. Great job!</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Flagged Users */}
             <Card className="bg-neutral-900 border-neutral-800 text-white">
@@ -893,69 +708,57 @@ export function AdminPanel({
               <CardContent>
                 {flaggedUsers.length > 0 ? (
                   <div className="space-y-3">
-                    {flaggedUsers.map((user) => {
-                      const latestFlag = getLatestActiveFlag(user.id);
-                      const latestReason = latestFlag?.reason || user.flagReason;
-                      return (
-                        <div key={user.id} className="p-3 bg-neutral-800/50 rounded-lg border border-neutral-700">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span>{user.name}</span>
-                                <Badge variant="destructive" className="text-xs">
-                                  Flagged
-                                </Badge>
-                                {latestFlag && (
-                                  <Badge variant="outline" className="border-neutral-700 text-neutral-200 text-[10px]">
-                                    {latestFlag.status}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-neutral-300">{user.email}</p>
+                    {flaggedUsers.map((user) => (
+                      <div key={user.id} className="p-3 bg-neutral-800/50 rounded-lg border border-neutral-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span>{user.name}</span>
+                              <Badge variant="destructive" className="text-xs">
+                                Flagged
+                              </Badge>
                             </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-orange-500 hover:text-orange-400"
-                                onClick={() => openPenaltyDialog(user, latestFlag?.flag_id ?? undefined, latestReason)}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Penalty
-                              </Button>
-                              {latestFlag && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-green-500 hover:text-green-400"
-                                  disabled={resolvingFlagId === latestFlag.flag_id}
-                                  onClick={() => handleResolveFlagClick(latestFlag.flag_id, "rejected")}
-                                >
-                                  <Shield className="h-4 w-4 mr-1" />
-                                  Unflag
-                                </Button>
-                              )}
-                            </div>
+                            <p className="text-sm text-neutral-300">{user.email}</p>
                           </div>
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-xs text-neutral-500 mb-1">Reason:</p>
-                              <p className="text-sm">{latestReason || "No details provided."}</p>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-neutral-300">
-                                {reviews.filter((r) => r.userId === user.id).length} reviews • {watchlists[user.id]?.length || 0} in watchlist
-                              </span>
-                              {user.penalties > 0 && (
-                                <Badge variant="outline" className="border-yellow-800 text-yellow-400">
-                                  {user.penalties} penalties
-                                </Badge>
-                              )}
-                            </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-orange-500 hover:text-orange-400"
+                              onClick={() => openPenaltyDialog(user)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Penalty
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-500 hover:text-green-400"
+                              onClick={() => onUnflagUser(user.id)}
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Unflag
+                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-xs text-neutral-500 mb-1">Reason:</p>
+                            <p className="text-sm">{user.flagReason}</p>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-neutral-300">
+                              {reviews.filter((r) => r.userId === user.id).length} reviews • {watchlists[user.id]?.length || 0} in watchlist
+                            </span>
+                            {user.penalties > 0 && (
+                              <Badge variant="outline" className="border-yellow-800 text-yellow-400">
+                                {user.penalties} penalties
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-neutral-500">
@@ -1046,7 +849,6 @@ export function AdminPanel({
             setPenalizingUser(null);
             setPenaltyReason("");
             setPenaltyError(null);
-            setPenaltySourceFlagId(null);
           }
         }}
       >
@@ -1076,7 +878,6 @@ export function AdminPanel({
                   setPenalizingUser(null);
                   setPenaltyReason("");
                   setPenaltyError(null);
-                  setPenaltySourceFlagId(null);
                 }}
               >
                 Cancel
