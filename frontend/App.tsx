@@ -26,6 +26,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "./components/ui/carousel";
+import { MyMovieNote } from "./components/MyMovieNote";
+
 
 // Mock movie data
 const initialMovies: Movie[] = [
@@ -501,6 +503,7 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const showDiscoverySections = true;
   const usersRef = useRef<User[]>(mockUsers);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
@@ -1403,6 +1406,10 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              <MyMovieNote
+                userId={currentUserId}
+                movieId={selectedMovie.id}
+              />
             </div>
           ) : activeSection === "search" ? (
             <div className="space-y-6">

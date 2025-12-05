@@ -22,6 +22,9 @@ import {
   AlertDialogTitle,
   AlertDialogCancel,
 } from "./ui/alert-dialog";
+import { MyMovieNote } from "./MyMovieNote";
+
+
 
 interface Review {
   id: string;
@@ -253,6 +256,7 @@ export function MovieDialog({
               </div>
             ))}
           </div>
+          <MyMovieNote userId={currentUser} movieId={movie.id} />
         </div>
       </DialogContent>
 
