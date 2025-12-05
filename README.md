@@ -1,10 +1,37 @@
 # COSC310 API
 
-Developer-facing notes for the FastAPI backend. Run locally with:
+Developer-facing notes for the FastAPI backend. 
+
+To install dependencies on your machine:
+
+  1. Open terminal in project root, run 
+
+```bash
+    cd frontend
+    npm install
+    cd ..
+    cd backend
+    python -m venv myenv
+    myenv\Scripts\activate
+    cd ..
+    pip install -r requirements.txt
+  ```
+
+To launch app:
+
+  1. Open terminal in backend, run
 
 ```bash
 uvicorn backend.main:app --reload
 ```
+
+  2. Open a second terminal in backend, run 
+
+```bash
+npm run dev
+```
+Then follow the provided link to the website.
+
 
 By default the API listens on `http://localhost:8000`. All responses are JSON. The service is stateless and persists to JSON files under `backend/data/`.
 
