@@ -1,5 +1,6 @@
 import json
 import os
+import csv
 from pathlib import Path
 from typing import Any, Dict, Optional
 from threading import RLock  # NEW: for repo-level concurrency
@@ -25,33 +26,28 @@ class MovieRepository:
         """
         return title.strip().lower().replace(" ", "-")
 
-    
     @staticmethod
-    def _resolve_movie_dir(movie_id: str) -> Path:
+    def _resolve_movie_dir(movie_id: str) -> Optional[Path]:
         """
         Locate the on-disk directory for a movie id, accepting raw ids or slugified titles.
+        Returns None if no matching directory is found.
         """
         normalized = movie_id.strip().lower()
         direct_path = MOVIES_DIR / movie_id
         if direct_path.is_dir():
             return direct_path
-    def movie_exists(movie_id: str) -> bool:
-        # helper method to check if movie exists
-        return MovieRepository._resolve_movie_dir(movie_id) is not None
-
-    @staticmethod
-    def _resolve_movie_dir(movie_id: str) -> Optional[Path]:
-        """
-        Resolve a movie directory from a given slugged movie_id.
-        Returns None if no matching directory is found.
-        """
         if not MOVIES_DIR.exists():
             return None
         for name in os.listdir(MOVIES_DIR):
             path = MOVIES_DIR / name
-            if path.is_dir() and MovieRepository._slug(name) == movie_id:
+            if path.is_dir() and MovieRepository._slug(name) == normalized:
                 return path
         return None
+
+    @staticmethod
+    def movie_exists(movie_id: str) -> bool:
+        """Helper to check if a movie directory exists."""
+        return MovieRepository._resolve_movie_dir(movie_id) is not None
 
     @staticmethod
     def _metadata_path(movie_id: str) -> Path:
@@ -181,12 +177,20 @@ class ReviewRepository:
         review_path = ReviewRepository._review_path(movie_id)
 
         with _REVIEW_DATA_LOCK:
-            if not review_path.exists():
+            if not review_path.exists() or review_path.stat().st_size == 0:
+                seeded = ReviewRepository._seed_from_csv_if_available(movie_id)
+                if seeded is not None:
+                    ReviewRepository.save_review_data(movie_id, {"reviews": seeded})
+                    return {"reviews": seeded}
                 return {"reviews": {}}
 
             with review_path.open("r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if not content:
+                    seeded = ReviewRepository._seed_from_csv_if_available(movie_id)
+                    if seeded is not None:
+                        ReviewRepository.save_review_data(movie_id, {"reviews": seeded})
+                        return {"reviews": seeded}
                     return {"reviews": {}}
                 payload = json.loads(content)
 
@@ -211,3 +215,92 @@ class ReviewRepository:
             with tmp_path.open("w", encoding="utf-8") as f:
                 json.dump({"reviews": data.get("reviews", {})}, f, indent=2)
             os.replace(tmp_path, review_path)
+
+    @staticmethod
+    def _seed_from_csv_if_available(movie_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Attempt to seed user_reviews.json from movieReviews.csv by picking top 10 reviews
+        ranked by Usefulness Vote. Returns a reviews dict or None if CSV missing/unreadable.
+        """
+        movie_dir = MovieRepository._resolve_movie_dir(movie_id)
+        if movie_dir is None:
+            return None
+        csv_path = movie_dir / "movieReviews.csv"
+        if not csv_path.exists():
+            return None
+
+        try:
+            with csv_path.open("r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = []
+                for row in reader:
+                    try:
+                        upvotes = int(row.get("Usefulness Vote", 0) or 0)
+                        total_votes = int(row.get("Total Votes", 0) or 0)
+                        rating = float(row.get("User's Rating out of 10", 0) or 0)
+                        username = (row.get("User") or "").strip() or "anonymous"
+                        review_title = (row.get("Review Title") or "").strip()
+                        review_body = (row.get("Review") or "").strip()
+                        date_raw = (row.get("Date of Review") or "").strip()
+                    except Exception:
+                        continue
+
+                    review_text = review_body
+                    if review_title:
+                        review_text = f"{review_title}\n\n{review_body}" if review_body else review_title
+
+                    rows.append({
+                        "user": username,
+                        "upvotes": upvotes,
+                        "total_votes": total_votes,
+                        "rating": rating,
+                        "review_text": review_text,
+                        "date": date_raw,
+                    })
+
+                if not rows:
+                    return None
+
+                # Sort by usefulness vote desc, tie-breaker by total_votes desc
+                rows.sort(key=lambda r: (r["upvotes"], r["total_votes"]), reverse=True)
+                top = rows[:10]
+
+                reviews: Dict[str, Any] = {}
+                for item in top:
+                    user_id = item["user"]
+                    reviews[user_id] = {
+                        "user_id": user_id,
+                        "username": user_id,
+                        "rating": item["rating"],
+                        "review_text": item["review_text"],
+                        "upvotes": item["upvotes"],
+                        "downvotes": 0,
+                        "created_at": item["date"] or None,
+                        "updated_at": item["date"] or None,
+                    }
+                return reviews
+        except Exception:
+            return None
+
+    @staticmethod
+    def seed_all_from_csv(force_overwrite: bool = True) -> None:
+        """
+        Iterate over all movie directories and seed user_reviews.json from movieReviews.csv.
+        If force_overwrite is True, existing review files are replaced.
+        """
+        if not MOVIES_DIR.exists():
+            return
+        for path in MOVIES_DIR.iterdir():
+            if not path.is_dir():
+                continue
+            movie_id = MovieRepository._slug(path.name)
+            target = path / "user_reviews.json"
+            if target.exists() and not force_overwrite:
+                continue
+            seeded = ReviewRepository._seed_from_csv_if_available(movie_id)
+            if seeded is not None:
+                ReviewRepository.save_review_data(movie_id, {"reviews": seeded})
+
+
+# Seed all review files from CSV on import (overwrite to ensure data present)
+ReviewRepository.seed_all_from_csv(force_overwrite=True)
