@@ -526,5 +526,60 @@
         "active": true,
         "date_revoked": null,
         "revoked_by": null
+    },
+    {
+        "penalty_id": 44,
+        "user_id": 292870822,
+        "issued_by": 641455522,
+        "reason": "annoying",
+        "source_flag_id": 40,
+        "date_issued": "2025-12-05T07:20:31.238874+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 45,
+        "user_id": 292870822,
+        "issued_by": 641455522,
+        "reason": "spam",
+        "source_flag_id": 45,
+        "date_issued": "2025-12-05T07:28:23.812895+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 46,
+        "user_id": 292870822,
+        "issued_by": 641455522,
+        "reason": "spam",
+        "source_flag_id": 45,
+        "date_issued": "2025-12-05T07:32:01.229476+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 47,
+        "user_id": 3186315,
+        "issued_by": 641455522,
+        "reason": "hate",
+        "source_flag_id": 49,
+        "date_issued": "2025-12-05T07:32:23.376582+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
+    },
+    {
+        "penalty_id": 48,
+        "user_id": 292870822,
+        "issued_by": 641455522,
+        "reason": "bad",
+        "source_flag_id": 44,
+        "date_issued": "2025-12-05T07:35:06.578180+00:00",
+        "active": true,
+        "date_revoked": null,
+        "revoked_by": null
     }
 ]
