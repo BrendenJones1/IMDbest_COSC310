@@ -767,12 +767,15 @@ interface FlagReviewPayload {
 }
 
 export default function App() {
+  const initialToken =
+    typeof window !== "undefined" ? window.localStorage.getItem("accessToken") : null;
+
   const [isDownloadingData, setIsDownloadingData] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(initialToken));
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(initialToken);
   const [currentUser, setCurrentUser] = useState("Alice");
   const [activeSection, setActiveSection] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1186,33 +1189,51 @@ export default function App() {
     setReviews((prev) => [...prev, newReview]);
   };
 
-   const handleDownloadUserData = async () => {
+  const getAccessToken = () =>
+    authToken || (typeof window !== "undefined" ? localStorage.getItem("accessToken") : null);
+
+  const handleDownloadUserData = async () => {
     setDownloadError(null);
     setIsDownloadingData(true);
 
     try {
-      const token = localStorage.getItem("accessToken");
-
-      const headers: HeadersInit = { Accept: "application/json" };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+      const token = getAccessToken();
+      if (!token) {
+        setIsAuthenticated(false);
+        setActiveSection("login");
+        setAuthMode("login");
+        setDownloadError("Please sign in to download your data.");
+        return;
       }
 
+      const headers: HeadersInit = {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      };
 
       const response = await fetch(`${API_BASE_URL}/users/me/export`, {
         method: "GET",
         headers,
-
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          // Token present but backend could not find user; force re-auth
+          setIsAuthenticated(false);
+          setAuthToken(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("accessToken");
+          }
+          setActiveSection("login");
+          setAuthMode("login");
+          setDownloadError("Account not found. Please sign in again.");
+          return;
+        }
         throw new Error(`Download failed with status ${response.status}`);
       }
 
-      // Get the file as a Blob
       const blob = await response.blob();
 
-      // Try to read filename from Content-Disposition, default to my-data.json
       const cd = response.headers.get("Content-Disposition") || "";
       let filename = "my-data.json";
       const match = /filename="?([^"]+)"?/.exec(cd);
@@ -1220,7 +1241,6 @@ export default function App() {
         filename = match[1];
       }
 
-      // Create a temporary link and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -1258,6 +1278,8 @@ const loginAgainstBackend = async (username: string, password: string) => {
   }
 
   localStorage.setItem("accessToken", token);
+  setAuthToken(token);
+  setIsAuthenticated(true);
 };
   const handleSubmitDetailReview = () => {
     if (!selectedMovie || !detailReviewInput.comment.trim()) return;
@@ -1514,6 +1536,13 @@ const loginAgainstBackend = async (username: string, password: string) => {
     await handleSubmitReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment);
     setDetailReviewInput({ rating: 5, comment: "" });
   };
+
+  // Keep auth token in localStorage when it changes
+  useEffect(() => {
+    if (authToken) {
+      localStorage.setItem("accessToken", authToken);
+    }
+  }, [authToken]);
 
   const handleDeleteReview = async (movieId: string, userId?: string, _date?: string) => {
     const targetUser = userId || currentUserId;
@@ -2205,7 +2234,10 @@ const loginAgainstBackend = async (username: string, password: string) => {
                             setAuthMode("login");
                             setAuthError(null);
                             setActiveSection("home");
-                            setAuthToken(null); // clear JWT/localStorage
+                          setAuthToken(null); // clear JWT/localStorage
+                          if (typeof window !== "undefined") {
+                            localStorage.removeItem("accessToken");
+                          }
                           }}
                         />
 
