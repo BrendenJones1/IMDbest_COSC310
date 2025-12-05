@@ -3,7 +3,7 @@ from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from backend.services.users_service import user_service as users_service
 from backend.routers import users_router
-from backend.schemas.user import UserCreate
+from backend.schemas.user import UserCreate, UserPublic
 from backend.utils.security import create_access_token
 from datetime import datetime, timezone
 import sys
@@ -374,3 +374,142 @@ def test_root_exists(client):
     """
     res = client.get("/")
     assert res.status_code in (200, 404)
+
+from backend.schemas.review import ReviewOut
+from backend.services.review_service import ReviewService
+
+
+def test_export_my_data_happy_path(client, monkeypatch):
+    """
+    When the authenticated user exists and has reviews, the route should:
+      - return 200
+      - include user data, stats.reviewCount, and reviews
+      - set Content-Disposition for file download
+    """
+
+    # --- Arrange: fake user matching UserPublic ---
+    fake_user = UserPublic(
+        id="user-1",
+        username="alice",
+        email="alice@example.com",
+        reviews=[],
+        watchlist=[],
+        registered_at=None,
+    )
+
+    # --- Arrange: fake reviews matching ReviewOut ---
+    ts = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    fake_reviews = [
+        ReviewOut(
+            user_id="user-1",
+            username="alice",
+            rating=4.0,
+            review_text="Nice movie",
+            upvotes=0,
+            downvotes=0,
+            created_at=ts,
+            updated_at=ts,
+        ),
+        ReviewOut(
+            user_id="user-1",
+            username="alice",
+            rating=5.0,
+            review_text="Loved it",
+            upvotes=0,
+            downvotes=0,
+            created_at=ts,
+            updated_at=ts,
+        ),
+    ]
+
+    # --- Monkeypatch services used in export_my_data ---
+
+    def fake_get_user_by_username(username: str):
+        assert username == fake_user.username
+        return fake_user
+
+    monkeypatch.setattr(users_service, "get_user_by_username", fake_get_user_by_username)
+
+    # Your route calls: ReviewService.get_reviews_by_user_id(user_id=user.id)
+    # So we patch that class attribute directly.
+    def fake_get_reviews_by_user_id(user_id: str):
+        assert user_id == fake_user.id
+        return fake_reviews, []
+
+    # If the real method is a @staticmethod or plain function used on the class,
+    # this direct patch works fine:
+    monkeypatch.setattr(ReviewService, "get_reviews_by_user_id", fake_get_reviews_by_user_id)
+
+    # --- Override get_current_user dependency ---
+
+    def fake_current_user():
+        # Matches your CurrentUser TypedDict
+        return {
+            "username": fake_user.username,
+            "role": "user",
+            "token_version": 0,
+        }
+
+    app = client.app
+    app.dependency_overrides[users_router.get_current_user] = fake_current_user
+
+    # --- Act ---
+    resp = client.get("/users/me/export")  # prefix="/users" + path "/me/export"
+
+    # --- Assert ---
+    assert resp.status_code == status.HTTP_200_OK
+
+    cd = resp.headers.get("Content-Disposition", "")
+    assert "attachment" in cd
+    assert "my-data.json" in cd
+
+    payload = resp.json()
+
+    # User section
+    assert payload["user"]["username"] == fake_user.username
+    assert payload["user"]["email"] == fake_user.email
+
+    # Stats section
+    assert payload["stats"]["reviewCount"] == len(fake_reviews)
+
+    # Reviews section
+    assert len(payload["reviews"]) == len(fake_reviews)
+    assert payload["reviews"][0]["review_text"] == "Nice movie"
+    assert payload["reviews"][1]["review_text"] == "Loved it"
+
+
+def test_export_my_data_user_not_found(client, monkeypatch):
+    """
+    If get_user_by_username returns None, the route should respond 404.
+    """
+
+    def fake_get_user_by_username(username: str):
+        # Simulate missing user
+        return None
+
+    monkeypatch.setattr(users_service, "get_user_by_username", fake_get_user_by_username)
+
+    def fake_get_reviews_by_user_id(user_id: str):
+        # Should not be called when user is None, but safe fallback
+        return [], []
+
+    # If the real method is a @staticmethod or plain function used on the class,
+    # this direct patch works fine:
+    monkeypatch.setattr(ReviewService, "get_reviews_by_user_id", fake_get_reviews_by_user_id)
+
+    # --- Override get_current_user dependency ---
+
+    def fake_current_user():
+        return {
+            "username": "ghost-user",
+            "role": "user",
+            "token_version": 0,
+        }
+
+    app = client.app
+    app.dependency_overrides[users_router.get_current_user] = fake_current_user
+
+    resp = client.get("/users/me/export")
+
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert resp.json()["detail"] == "User not found"

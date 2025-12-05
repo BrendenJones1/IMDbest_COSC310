@@ -1,4 +1,4 @@
-import { User, ChevronDown, LogOut, Settings } from "lucide-react";
+import { User, ChevronDown, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +17,17 @@ interface UserSwitcherProps {
 
 export function UserSwitcher({ currentUser, currentUserEmail, onSignOut }: UserSwitcherProps) {
   const handleSignOut = () => {
+    // Always clear JWT on sign out (no-op if it doesn't exist)
+    try {
+      localStorage.removeItem("accessToken");
+    } catch (e) {
+      console.warn("Failed to clear accessToken from localStorage", e);
+    }
+
     if (onSignOut) {
       onSignOut();
     } else {
-      // Default demo behavior - show alert
+      // Default demo behavior
       alert("Sign out clicked - In production, this would sign out the user");
     }
   };

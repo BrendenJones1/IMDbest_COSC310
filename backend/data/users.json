@@ -76,5 +76,41 @@
     "watchlist": [],
     "token_version": 0,
     "registered_at": "2025-12-01T00:00:00Z"
+  },
+  {
+    "id": "alice",
+    "username": "Alice",
+    "email": "alice@example.com",
+    "password_hash": "$2b$12$sTLnMDBaQBj7vCVhhgbL2OnrHfT8T3JOI.nAwpnhQSyWOhF7TXtT2",
+    "role": "admin",
+    "penalties": [],    
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-04T22:50:45.763495+00:00"
+  },
+  {
+    "id": "bob",
+    "username": "Bob",
+    "email": "bob@example.com",
+    "password_hash": "$2b$12$SjlV9pIBvPxcIP5avZBVGe251mWvBDsLEBUDRrW3n7xtsSoNgZOQy", 
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-04T22:50:45.763495+00:00"
+  },
+  {
+    "id": "charlie",
+    "username": "Charlie",
+    "email": "charlie@example.com",
+    "password_hash": "$2b$12$4ds5AreGzNM.uMXwT5vg/eGxEuO1vaUKMr2jHaqryUSE7gCxfBCIS",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-04T22:50:45.763495+00:00"
   }
 ]
