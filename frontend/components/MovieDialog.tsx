@@ -479,16 +479,6 @@ export function MovieDialog({
                       <ThumbsUp className="h-4 w-4 mr-1" />
                       {review.upvotes}
                     </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="h-8"
-                      disabled={pendingVoteFor === `down-${review.userId}` || review.userId === currentUserId}
-                      onClick={() => handleVote("down", review)}
-                    >
-                      <ThumbsDown className="h-4 w-4 mr-1" />
-                      {review.downvotes}
-                    </Button>
                   </div>
                 </div>
               ))}

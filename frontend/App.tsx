@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Star, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Sidebar } from "./components/Sidebar";
@@ -12,6 +12,7 @@ import { UserDashboard } from "./components/UserDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { RegisterScreen } from "./components/RegisterScreen";
 import { LoginScreen } from "./components/LoginScreen";
+import { MovieDialog } from "./components/MovieDialog";
 import { Button } from "./components/ui/button";
 import {
   DropdownMenu,
@@ -781,6 +782,7 @@ export default function App() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedMovieMeta, setSelectedMovieMeta] = useState<Record<string, any> | null>(null);
   const [sortBy, setSortBy] = useState<"title" | "rating" | "year">("title");
   const [filterGenre, setFilterGenre] = useState<string>("all");
@@ -883,6 +885,12 @@ export default function App() {
           setUsers(mapped);
         }
       } catch (error) {
+        const err: any = error;
+        const isAbort =
+          err?.name === "AbortError" ||
+          err?.code === 20 ||
+          typeof err?.message === "string" && err.message.toLowerCase().includes("aborted");
+        if (isAbort) return;
         console.warn("Using local users fallback. Unable to load backend users.", error);
       }
     };
@@ -893,15 +901,21 @@ export default function App() {
   }, []);
 
   const mapBackendReview = useCallback((movieId: string, item: any): UserReview => {
+    const userName = item.username || item.userName || item.user_id || "Anonymous";
+    const createdAt = item.created_at || item.date || new Date().toISOString();
+    const comment = item.review_text || item.reviewText || "";
     return {
       movieId,
       userId: item.user_id,
-      username: item.username || item.user_id,
+      username: userName,
+      userName,
       rating: typeof item.rating === "number" ? item.rating : Number(item.rating ?? 0),
-      reviewText: item.review_text || "",
+      reviewText: comment,
+      comment,
       upvotes: typeof item.upvotes === "number" ? item.upvotes : Number(item.upvotes ?? 0),
       downvotes: typeof item.downvotes === "number" ? item.downvotes : Number(item.downvotes ?? 0),
-      createdAt: item.created_at || new Date().toISOString(),
+      createdAt,
+      date: typeof createdAt === "string" ? createdAt.split("T")[0] : createdAt,
     };
   }, []);
 
@@ -1348,6 +1362,9 @@ export default function App() {
         );
         return { ...prev, [movieId]: updated };
       });
+
+      // Refresh from backend to keep counts and ordering in sync (handles toggles and cross-user votes)
+      await fetchReviewsForMovie(movieId);
     } catch (error) {
       console.error("Failed to vote on review", error);
       setReviewError("Unable to vote on this review right now.");
@@ -1389,6 +1406,12 @@ export default function App() {
       console.error("Failed to submit review", error);
       setReviewError("Unable to submit review right now.");
     }
+  };
+
+  const handleSubmitDetailReview = async () => {
+    if (!selectedMovie) return;
+    await handleSubmitReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment);
+    setDetailReviewInput({ rating: 5, comment: "" });
   };
 
   const handleDeleteReview = async (movieId: string, userId?: string, _date?: string) => {
@@ -1521,11 +1544,6 @@ export default function App() {
     });
 
   const filteredMovies = isWatchlistView ? watchlistFiltered : generalFiltered;
-
-  const movieReviews = useMemo(
-    () => (selectedMovie ? reviews.filter((r) => r.id === selectedMovie.id) : []),
-    [reviews, selectedMovie?.id]
-  );
 
   const detailReleaseDate =
     selectedMovieMeta?.datePublished ||
@@ -1850,7 +1868,7 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Reviews</h2>
-                  <span className="text-neutral-400 text-sm">{movieReviews.length} reviews</span>
+                  <span className="text-neutral-400 text-sm">{selectedMovieReviews.length} reviews</span>
                 </div>
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -1882,19 +1900,24 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  {movieReviews.length === 0 && (
+                  {selectedMovieReviews.length === 0 && (
                     <div className="text-neutral-500 text-sm">No reviews yet.</div>
                   )}
-                  {movieReviews.map((review, index) => (
+                  {selectedMovieReviews.map((review, index) => (
                     <div key={`${review.userId}-${index}`} className="border border-neutral-800 rounded-lg p-4 bg-neutral-900">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm">
-                            {review.userName.charAt(0).toUpperCase()}
+                            {String(review.userName || review.username || review.userId || "A")
+                              .charAt(0)
+                              .toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm">{review.userName}</p>
-                            <p className="text-xs text-neutral-500">{review.date}</p>
+                            <p className="text-sm">{review.userName || review.username || review.userId || "Anonymous"}</p>
+                            <p className="text-xs text-neutral-500">
+                              {review.date ||
+                                (typeof review.createdAt === "string" ? review.createdAt.split("T")[0] : "")}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 text-yellow-400">
@@ -1902,7 +1925,19 @@ export default function App() {
                           <span className="font-semibold">{review.rating}/10</span>
                         </div>
                       </div>
-                      <p className="text-neutral-300">{review.comment}</p>
+                      <p className="text-neutral-300">{review.comment || review.reviewText || ""}</p>
+                      <div className="mt-3 flex items-center gap-3 text-sm text-neutral-300">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8"
+                          disabled={review.userId === currentUserId}
+                          onClick={() => selectedMovie && handleVoteReview(selectedMovie.id, review.userId, "up")}
+                        >
+                          <ThumbsUp className="h-4 w-4 mr-1" />
+                          {review.upvotes ?? 0}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
