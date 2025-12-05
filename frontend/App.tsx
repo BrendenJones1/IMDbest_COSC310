@@ -511,6 +511,7 @@ export default function App() {
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
   const usersRef = useRef<User[]>(mockUsers);
+  const [draggingWatchlistId, setDraggingWatchlistId] = useState<string | null>(null);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
     bob: ["urban-legends", "love-in-paris"],
@@ -1061,24 +1062,43 @@ export default function App() {
   };
 
   const currentWatchlist = watchlists[currentUserId] || [];
+  const handleWatchlistDragStart = (movieId: string) => setDraggingWatchlistId(movieId);
+  const handleWatchlistDragEnd = () => setDraggingWatchlistId(null);
+  const handleWatchlistDragEnter = (targetId: string) => {
+    if (!draggingWatchlistId || draggingWatchlistId === targetId) return;
+    setWatchlists((prev) => {
+      const list = prev[currentUserId] ? [...prev[currentUserId]] : [];
+      const fromIdx = list.indexOf(draggingWatchlistId);
+      const toIdx = list.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, draggingWatchlistId);
+      return { ...prev, [currentUserId]: list };
+    });
+  };
   const showDiscoverySections = activeSection === "home" && filterGenre === "all";
 
   // Get all unique genres
   const allGenres = Array.from(new Set(movies.flatMap((movie) => movie.genre)));
 
-  const filteredMovies = movies
+  const isWatchlistView = activeSection === "watchlist";
+
+  const watchlistMoviesOrdered = currentWatchlist
+    .map((id) => movies.find((m) => m.id === id))
+    .filter(Boolean) as Movie[];
+
+  const watchlistFiltered = watchlistMoviesOrdered.filter((movie) => {
+    const matchesGenre = filterGenre === "all" || movie.genre.includes(filterGenre);
+    const matchesSearch =
+      searchQuery === "" ||
+      movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesGenre && matchesSearch;
+  });
+
+  const generalFiltered = movies
     .filter((movie) => {
       const matchesGenre = filterGenre === "all" || movie.genre.includes(filterGenre);
-      const matchesSearch =
-        activeSection === "watchlist"
-          ? movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()))
-          : true;
-
-      if (activeSection === "watchlist") {
-        return matchesSearch && matchesGenre && currentWatchlist.includes(movie.id);
-      }
-
       return matchesGenre;
     })
     .sort((a, b) => {
@@ -1091,6 +1111,8 @@ export default function App() {
       }
       return 0;
     });
+
+  const filteredMovies = isWatchlistView ? watchlistFiltered : generalFiltered;
 
   const movieReviews = useMemo(
     () => (selectedMovie ? reviews.filter((r) => r.id === selectedMovie.id) : []),
@@ -1645,13 +1667,25 @@ export default function App() {
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredMovies.map((movie) => (
-                      <MovieCard
+                      <div
                         key={movie.id}
-                        movie={movie}
-                        isInWatchlist={currentWatchlist.includes(movie.id)}
-                        onWatchlistToggle={handleWatchlistToggle}
-                        onMovieClick={handleMovieClick}
-                      />
+                        draggable={isWatchlistView}
+                        onDragStart={() => handleWatchlistDragStart(movie.id)}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          handleWatchlistDragEnter(movie.id);
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnd={handleWatchlistDragEnd}
+                        className={isWatchlistView ? "cursor-move" : ""}
+                      >
+                        <MovieCard
+                          movie={movie}
+                          isInWatchlist={currentWatchlist.includes(movie.id)}
+                          onWatchlistToggle={handleWatchlistToggle}
+                          onMovieClick={handleMovieClick}
+                        />
+                      </div>
                     ))}
                   </div>
 
