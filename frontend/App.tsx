@@ -798,7 +798,6 @@ export default function App() {
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [movieError, setMovieError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
-  const showDiscoverySections = true;
   const usersRef = useRef<User[]>(mockUsers);
   const [draggingWatchlistId, setDraggingWatchlistId] = useState<string | null>(null);
   const [reviewsByMovie, setReviewsByMovie] = useState<Record<string, UserReview[]>>({});
@@ -1281,12 +1280,6 @@ const loginAgainstBackend = async (username: string, password: string) => {
   setAuthToken(token);
   setIsAuthenticated(true);
 };
-  const handleSubmitDetailReview = () => {
-    if (!selectedMovie || !detailReviewInput.comment.trim()) return;
-    handleAddReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment.trim());
-    setDetailReviewInput({ rating: 5, comment: "" });
-  };
-
   const handleFlagReview = async ({
     movieId,
     reviewUserId,
@@ -1536,6 +1529,7 @@ const loginAgainstBackend = async (username: string, password: string) => {
     await handleSubmitReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment);
     setDetailReviewInput({ rating: 5, comment: "" });
   };
+
 
   // Keep auth token in localStorage when it changes
   useEffect(() => {
