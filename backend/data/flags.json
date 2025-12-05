@@ -411,5 +411,14 @@
         "reason": "abusive",
         "status": "approved",
         "date_created": "2025-12-03T21:57:52.813190"
+    },
+    {
+        "flag_id": 47,
+        "review_id": 1759947970,
+        "flagger_id": 1515277122,
+        "flagged_user_id": 2037994039,
+        "reason": "annoying",
+        "status": "pending",
+        "date_created": "2025-12-04T13:22:16.735956"
     }
 ]

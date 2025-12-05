@@ -64,12 +64,12 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Watchlist</CardTitle>
+            <CardTitle className="text-sm text-white">Watchlist</CardTitle>
             <Heart className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{watchlist.length}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white font-semibold">{watchlist.length}</div>
+            <p className="text-xs text-neutral-200 mt-1">
               movies saved
             </p>
           </CardContent>
@@ -77,12 +77,12 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
 
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Reviews Written</CardTitle>
+            <CardTitle className="text-sm text-white">Reviews Written</CardTitle>
             <Star className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{userReviews.length}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white font-semibold">{userReviews.length}</div>
+            <p className="text-xs text-neutral-200 mt-1">
               total reviews
             </p>
           </CardContent>
@@ -90,12 +90,12 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
 
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Average Rating</CardTitle>
+            <CardTitle className="text-sm text-white">Average Rating</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{averageUserRating}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white font-semibold">{averageUserRating}</div>
+            <p className="text-xs text-neutral-200 mt-1">
               your avg score
             </p>
           </CardContent>
@@ -103,12 +103,12 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
 
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Member Since</CardTitle>
+            <CardTitle className="text-sm text-white">Member Since</CardTitle>
             <Calendar className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{joinedDaysAgo}</div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <div className="text-2xl text-white font-semibold">{joinedDaysAgo}</div>
+            <p className="text-xs text-neutral-200 mt-1">
               days ago
             </p>
           </CardContent>
@@ -118,7 +118,7 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
       {topGenres.length > 0 && (
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader>
-            <CardTitle className="text-sm">Your Favorite Genres</CardTitle>
+            <CardTitle className="text-sm text-white">Your Favorite Genres</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 flex-wrap">
@@ -126,7 +126,7 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
                 <Badge
                   key={genre}
                   variant="outline"
-                  className="border-neutral-700 text-sm"
+                  className="border-neutral-700 text-sm text-neutral-200"
                 >
                   {genre}
                 </Badge>
@@ -139,7 +139,7 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
       {userReviews.length > 0 && (
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader>
-            <CardTitle className="text-sm">Recent Reviews</CardTitle>
+            <CardTitle className="text-sm text-white">Recent Reviews</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -149,10 +149,10 @@ export function UserDashboard({ currentUser, movies, watchlist, reviews }: UserD
                   <div key={index} className="flex items-start gap-3 pb-3 border-b border-neutral-800 last:border-0 last:pb-0">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm">{movie?.title || "Unknown"}</span>
+                        <span className="text-sm font-medium text-white">{movie?.title || "Unknown"}</span>
                         <div className="flex items-center gap-1">
                           <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                          <span className="text-xs text-neutral-400">{review.rating}/10</span>
+                          <span className="text-xs text-neutral-300">{review.rating}/10</span>
                         </div>
                       </div>
                       <p className="text-xs text-neutral-400 line-clamp-2">{review.comment}</p>

@@ -40,5 +40,41 @@
     "penalties": [],
     "reviews": [],
     "watchlist": []
+  },
+  {
+    "id": "elon-demo",
+    "username": "elon@demo.com",
+    "email": "elon@demo.com",
+    "password_hash": "$2b$12$jPL9fZgGTWExLPhWO0mQIOKMs5lNvkrS5VrjDXn/JL.ix6sznrSGm",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-01T00:00:00Z"
+  },
+  {
+    "id": "trump-demo",
+    "username": "trump@demo.com",
+    "email": "trump@demo.com",
+    "password_hash": "$2b$12$jPL9fZgGTWExLPhWO0mQIOKMs5lNvkrS5VrjDXn/JL.ix6sznrSGm",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-01T00:00:00Z"
+  },
+  {
+    "id": "messi-demo",
+    "username": "messi@demo.com",
+    "email": "messi@demo.com",
+    "password_hash": "$2b$12$jPL9fZgGTWExLPhWO0mQIOKMs5lNvkrS5VrjDXn/JL.ix6sznrSGm",
+    "role": "user",
+    "penalties": [],
+    "reviews": [],
+    "watchlist": [],
+    "token_version": 0,
+    "registered_at": "2025-12-01T00:00:00Z"
   }
 ]
