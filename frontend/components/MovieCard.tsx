@@ -13,6 +13,10 @@ export interface Movie {
   description: string;
   ageRating: string;
   trailerYoutubeId?: string;
+  durationMinutes?: number;
+  userReviews?: number;
+  ratingCount?: number;
+  imdbRating?: number;
 }
 
 interface MovieCardProps {
@@ -23,6 +27,13 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ movie, isInWatchlist, onWatchlistToggle, onMovieClick }: MovieCardProps) {
+  const displayRating = movie.rating && movie.rating > 0 ? movie.rating : movie.imdbRating ?? 0;
+  const displayDuration =
+    typeof movie.durationMinutes === "number" && movie.durationMinutes > 0
+      ? `${Math.floor(movie.durationMinutes / 60)}h${movie.durationMinutes % 60 ? ` ${movie.durationMinutes % 60}m` : ""}`
+      : null;
+  // hide reviews per request; keep duration & rating visible
+
   return (
     <div className="group relative cursor-pointer" onClick={() => onMovieClick(movie)}>
       <div className="relative overflow-hidden rounded-lg aspect-[2/3] bg-neutral-800">
@@ -31,10 +42,17 @@ export function MovieCard({ movie, isInWatchlist, onWatchlistToggle, onMovieClic
           alt={movie.title}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
-        <div className="absolute top-2 left-2">
-          <Badge className="bg-yellow-500 text-black hover:bg-yellow-600">
-            {movie.ageRating}
-          </Badge>
+        <div className="absolute top-2 left-2 flex gap-2">
+          {displayDuration && (
+            <Badge className="bg-neutral-900/80 text-white border border-neutral-700">
+              {displayDuration}
+            </Badge>
+          )}
+          {movie.ageRating && movie.ageRating !== "NR" && (
+            <Badge className="bg-yellow-500 text-black hover:bg-yellow-600">
+              {movie.ageRating}
+            </Badge>
+          )}
         </div>
         <div className="absolute top-2 right-2">
           <Button
@@ -51,10 +69,10 @@ export function MovieCard({ movie, isInWatchlist, onWatchlistToggle, onMovieClic
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
           <h3 className="text-white mb-1">{movie.title}</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap text-sm">
             <div className="flex items-center gap-1">
               <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-              <span className="text-yellow-500">{movie.rating.toFixed(1)}</span>
+              <span className="text-yellow-500">{displayRating.toFixed(1)}</span>
             </div>
             <span className="text-neutral-400">{movie.year}</span>
           </div>
