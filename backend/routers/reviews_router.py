@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Query, Path, HTTPException, Response, status
 from typing import Literal, Optional
+from pydantic import BaseModel
 
 from backend.services.review_service import ReviewService
 from backend.schemas.review import ReviewCreate, ReviewOut
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 service = ReviewService()
+
+
+class UpvotePayload(BaseModel):
+    voter_id: str
 
 
 @router.get("/{movie_id}")
@@ -63,3 +68,27 @@ def delete_review(
     """
     service.delete_user_review(user_id, movie_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{movie_id}/{user_id}/upvote", response_model=ReviewOut)
+def upvote_review(
+    movie_id: str = Path(..., description="Slug id of the movie (e.g., 'the-dark-knight')"),
+    user_id: str = Path(..., description="User id who authored the review"),
+    payload: UpvotePayload = ...,
+):
+    """
+    Upvote a review by user_id for the given movie. voter_id cannot match user_id.
+    """
+    return service.upvote_review(movie_id, user_id, payload.voter_id)
+
+
+@router.post("/{movie_id}/{user_id}/downvote", response_model=ReviewOut)
+def downvote_review(
+    movie_id: str = Path(..., description="Slug id of the movie (e.g., 'the-dark-knight')"),
+    user_id: str = Path(..., description="User id who authored the review"),
+    payload: UpvotePayload = ...,
+):
+    """
+    Downvote a review by user_id for the given movie. voter_id cannot match user_id.
+    """
+    return service.downvote_review(movie_id, user_id, payload.voter_id)

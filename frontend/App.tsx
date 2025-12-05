@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Star } from "lucide-react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Sidebar } from "./components/Sidebar";
@@ -131,7 +131,9 @@ const carouselSlides = [
   },
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL =
+  (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env
+    .VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const hashStringToPositiveInt = (value: string) => {
   let hash = 0;
@@ -222,6 +224,287 @@ const parseCount = (value: any): number => {
     return Number.isFinite(num) ? num : 0;
   }
   return 0;
+};
+
+const formatCompactNumber = (value: number | undefined | null) => {
+  if (!value || !Number.isFinite(value) || value <= 0) return "N/A";
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
+    value
+  );
+};
+
+const PERSON_HEADSHOTS: Record<string, string[]> = {
+// John Wick 3 (top cast)
+"keanu reeves": ["https://image.tmdb.org/t/p/w500/rRdru6REr9i3WIHv2mntpcgxnoY.jpg"],
+"halle berry": ["https://m.media-amazon.com/images/M/MV5BMjIxNzc5MDAzOV5BMl5BanBnXkFtZTcwMDUxMjMxMw@@._V1_FMjpg_UX1000_.jpg"],
+"ian mcshane": ["https://m.media-amazon.com/images/M/MV5BMmMyNDcwMDgtMmIxNC00NTcyLWIwMmItNDQzNmJjNmVhYjhhXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+
+  // Avengers Endgame (common cast/crew)
+  "anthony russo": ["https://image.tmdb.org/t/p/w500/9Z1Fnbtu8gkIdKnuQ9Fnr43mdhb.jpg"],
+  "joe russo": ["https://image.tmdb.org/t/p/w500/8Oa0Jgq7m072VA5X9XCLQyQ9Mb2.jpg"],
+  "robert downey jr.": ["https://image.tmdb.org/t/p/w500/5qHNjhtjMD4YWH3UP0rm4tKwxCL.jpg"],
+  "chris evans": ["https://image.tmdb.org/t/p/w500/3bOGNsHlrswhyW79uvIHH1V43JI.jpg"],
+  "scarlett johansson": ["https://image.tmdb.org/t/p/w500/6NsMbJXRlDZuDzatN2akFdGuTvx.jpg"],
+  "chris hemsworth": ["https://image.tmdb.org/t/p/w500/jpurJ9jAcLCYjgHHfYF32m3zJYm.jpg"],
+  "mark ruffalo": ["https://image.tmdb.org/t/p/w500/z3dvKqMNDQWk3QLxzumloQVR0pv.jpg"],
+  "jeremy renner": ["https://image.tmdb.org/t/p/w500/fk8OfdReNltKZqOk2TZgkofCUFq.jpg"],
+  "paul rudd": ["https://image.tmdb.org/t/p/w500/tbINXUehKFDnUmMi4IJGzWq8g2M.jpg"],
+  "brie larson": ["https://image.tmdb.org/t/p/w500/kbWValANhZI8rbWZXximXuMN4UN.jpg"],
+  "josh brolin": ["https://image.tmdb.org/t/p/w500/9LkuxIXn8zCtnanJQS7X0p3Zjol.jpg"],
+  "don cheadle": ["https://image.tmdb.org/t/p/w500/iyF5dNw8Y7EF8BHqRxyZ7nVRC6R.jpg"],
+  "karen gillan": ["https://image.tmdb.org/t/p/w500/7WQf7peEFGqFZ9FY5fj2ONqz4Fo.jpg"],
+  "benedict cumberbatch": ["https://image.tmdb.org/t/p/w500/fBEucxECxGLKVHBznO0qHtCGiMO.jpg"],
+  "chadwick boseman": ["https://image.tmdb.org/t/p/w500/7f4s7kFL7ECYQdy5ZK2QKtpjWdK.jpg"],
+  "tom holland": ["https://m.media-amazon.com/images/M/MV5BYzU3NWRhMjgtNmNmMS00YjQ1LWIyYzgtYzdkYjRjNWEzM2E3XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+  "zendaya": ["https://m.media-amazon.com/images/M/MV5BZjM5N2U3MzQtZWU5My00YzE0LThmZTgtYjE1NDJjNmIzZmIxXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+
+  // Pulp Fiction
+  "quentin tarantino": ["https://image.tmdb.org/t/p/w500/1gjcpAa99FAOWGnrUvHEXXsRs7o.jpg"],
+  "roger avary": ["https://image.tmdb.org/t/p/w500/2BVAZw5V3lIKh4uSQbFRqdyfTJS.jpg"],
+  "john travolta": ["https://m.media-amazon.com/images/M/MV5BNWUyNDZiMjItMjQzMy00YmQyLTliOTYtOGRkYzNhZTk5NDBiXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+  "samuel l. jackson": ["https://image.tmdb.org/t/p/w500/nCJJ3NVksYNxIzEHcyC1XziwPVj.jpg"],
+  "uma thurman": ["https://m.media-amazon.com/images/M/MV5BMjMxNzk1MTQyMl5BMl5BanBnXkFtZTgwMDIzMDEyMTE@._V1_FMjpg_UX1000_.jpg"],
+  "bruce willis": ["https://image.tmdb.org/t/p/w500/A1XBu3CffBpSK8HEIJM8q7Mn4lz.jpg"],
+
+  // Joker
+  "joaquin phoenix": ["https://m.media-amazon.com/images/M/MV5BYjFjNGYzYjEtNGE0Ny00M2IyLTk5ZmYtODE3ZGFkMzVjYmNmXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+  "robert de niro": ["https://image.tmdb.org/t/p/w500/cT8htcckIuyI1Lqwt1CvD02ynTh.jpg"],
+  "zazie beetz": ["https://m.media-amazon.com/images/M/MV5BMGYwMTVlZmEtMWU3OC00NDViLWE4YmQtNDFiYjQ0MzZmNGExXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+
+  // Forrest Gump
+  "tom hanks": ["https://image.tmdb.org/t/p/w500/xndWFsBlClOJFRdhSt4NBwiPq2o.jpg"],
+  "robin wright": ["https://m.media-amazon.com/images/M/MV5BMTU0NTc4MzEyOV5BMl5BanBnXkFtZTcwODY0ODkzMQ@@._V1_FMjpg_UX1000_.jpg"],
+  "gary sinise": ["https://m.media-amazon.com/images/M/MV5BMzE4NzcyMzU3OV5BMl5BanBnXkFtZTYwOTM2NDE2._V1_FMjpg_UX1000_.jpg"],
+  "sally field": ["https://m.media-amazon.com/images/M/MV5BMTQwOTMyMDI4MV5BMl5BanBnXkFtZTcwMDYzMTM5OA@@._V1_FMjpg_UX1000_.jpg"],
+
+  // Thor Ragnarok
+  "tom hiddleston": ["https://m.media-amazon.com/images/M/MV5BYTU0NjUyMjktNTBkNS00ZWFjLTgyZmUtZjVhMmU1YTVkOTM2XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+  "cate blanchett": ["https://m.media-amazon.com/images/M/MV5BMTc1MDI0MDg1NV5BMl5BanBnXkFtZTgwMDM3OTAzMTE@._V1_FMjpg_UX1000_.jpg"],
+  "tessa thompson": ["https://m.media-amazon.com/images/M/MV5BMjI4MjYyNjE5OF5BMl5BanBnXkFtZTgwMjc4MTY3OTE@._V1_.jpg"],
+  "jeff goldblum": ["https://m.media-amazon.com/images/M/MV5BMTY5MTQwMDk3MF5BMl5BanBnXkFtZTcwMzkxNTQ5MQ@@._V1_.jpg"],
+
+  // Morbius
+  "jared leto": ["https://m.media-amazon.com/images/M/MV5BMTczMjUwNDUzMF5BMl5BanBnXkFtZTgwNDA4OTAzMTE@._V1_FMjpg_UX1000_.jpg"],
+  "matt smith": ["https://m.media-amazon.com/images/M/MV5BMjE0NzExMTg0MV5BMl5BanBnXkFtZTgwOTIyNTI5NzE@._V1_FMjpg_UX1000_.jpg"],
+  "adria arjona": ["https://m.media-amazon.com/images/M/MV5BOGU1ZGViNjUtMGM1NS00MWM5LWExNWQtM2JjY2YzYzZhY2U0XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg"],
+
+  // The Dark Knight (top cast)
+  "christian bale": ["https://m.media-amazon.com/images/M/MV5BMTkxMzk4MjQ4MF5BMl5BanBnXkFtZTcwMzExODQxOA@@._V1_FMjpg_UX1000_.jpg"],
+  "heath ledger": ["https://m.media-amazon.com/images/M/MV5BMTI2NTY0NzA4MF5BMl5BanBnXkFtZTYwMjE1MDE0._V1_FMjpg_UX1000_.jpg"],
+  "aaron eckhart": ["https://m.media-amazon.com/images/M/MV5BMTc4MTAyNzMzNF5BMl5BanBnXkFtZTcwMzQ5MzQzMg@@._V1_FMjpg_UX1000_.jpg"],
+};
+
+const CHARACTER_BY_MOVIE: Record<string, Record<string, string>> = {
+  "avengers-endgame": {
+    "robert downey jr.": "Iron Man",
+    "chris evans": "Captain America",
+    "chris hemsworth": "Thor",
+    "mark ruffalo": "Hulk",
+    "benedict cumberbatch": "Doctor Strange",
+    "scarlett johansson": "Black Widow",
+    "jeremy renner": "Hawkeye",
+    "tom holland": "Spider-Man",
+    "zendaya": "MJ",
+  },
+  "john-wick-chapter-3-parabellum": {
+    "keanu reeves": "John Wick",
+    "halle berry": "Sofia",
+    "ian mcshane": "Winston",
+  },
+  "john-wick-chapter-3-parabellum-": {
+    "keanu reeves": "John Wick",
+    "halle berry": "Sofia",
+    "ian mcshane": "Winston",
+  },
+  "pulp-fiction": {
+    "john travolta": "Vincent Vega",
+    "samuel l. jackson": "Jules Winnfield",
+    "uma thurman": "Mia Wallace",
+    "bruce willis": "Butch Coolidge",
+  },
+  "the-avengers": {
+    "robert downey jr.": "Iron Man",
+    "chris evans": "Captain America",
+    "scarlett johansson": "Black Widow",
+    "chris hemsworth": "Thor",
+    "jeremy renner": "Hawkeye",
+  },
+  "joker": {
+    "joaquin phoenix": "Arthur Fleck / Joker",
+    "robert de niro": "Murray Franklin",
+    "zazie beetz": "Sophie Dumond",
+  },
+  "forrest-gump": {
+    "tom hanks": "Forrest Gump",
+    "robin wright": "Jenny Curran",
+    "gary sinise": "Lieutenant Dan Taylor",
+    "sally field": "Mrs. Gump",
+  },
+  "john-wick": {
+    "keanu reeves": "John Wick",
+    "michael nyqvist": "Viggo Tarasov",
+    "alfie allen": "Iosef Tarasov",
+    "willem dafoe": "Marcus",
+    "adrianne palicki": "Ms. Perkins",
+    "ian mcshane": "Winston",
+  },
+  "thor-ragnarok": {
+    "chris hemsworth": "Thor",
+    "tom hiddleston": "Loki",
+    "cate blanchett": "Hela",
+  },
+  "morbius": {
+    "jared leto": "Dr. Michael Morbius",
+    "matt smith": "Milo",
+    "adria arjona": "Martine Bancroft",
+  },
+  "the-dark-knight": {
+    "christian bale": "Bruce Wayne / Batman",
+    "heath ledger": "Joker",
+    "aaron eckhart": "Harvey Dent",
+  },
+  "spiderman-no-way-home": {
+    "tom holland": "Spider-Man",
+    "zendaya": "MJ",
+    "benedict cumberbatch": "Doctor Strange",
+  },
+};
+
+const DIRECTORS_FALLBACK: Record<string, string[]> = {
+  "avengers-endgame": ["Anthony Russo", "Joe Russo"],
+  "the-avengers": ["Joss Whedon"],
+  "john-wick-chapter-3-parabellum": ["Chad Stahelski"],
+  "john-wick-chapter-3-parabellum-": ["Chad Stahelski"],
+  "john-wick": ["Chad Stahelski"],
+  "pulp-fiction": ["Quentin Tarantino"],
+  "joker": ["Todd Phillips"],
+  "forrest-gump": ["Robert Zemeckis"],
+  "the-dark-knight": ["Christopher Nolan"],
+  "thor-ragnarok": ["Taika Waititi"],
+  "morbius": ["Daniel Espinosa"],
+  "spiderman-no-way-home": ["Jon Watts"],
+};
+
+const METADATA_PEOPLE_FALLBACK: Record<string, { name: string; role: "Director" | "Creator" | "Cast" }[]> = {
+  "avengers-endgame": [
+    { name: "Robert Downey Jr.", role: "Cast" },
+    { name: "Chris Evans", role: "Cast" },
+    { name: "Mark Ruffalo", role: "Cast" },
+    { name: "Benedict Cumberbatch", role: "Cast" },
+    { name: "Scarlett Johansson", role: "Cast" },
+    { name: "Chris Hemsworth", role: "Cast" },
+    { name: "Jeremy Renner", role: "Cast" },
+    { name: "Tom Holland", role: "Cast" },
+    { name: "Zendaya", role: "Cast" },
+  ],
+  "the-avengers": [
+    { name: "Robert Downey Jr.", role: "Cast" },
+    { name: "Chris Evans", role: "Cast" },
+    { name: "Scarlett Johansson", role: "Cast" },
+    { name: "Chris Hemsworth", role: "Cast" },
+    { name: "Jeremy Renner", role: "Cast" },
+  ],
+  "john-wick-chapter-3-parabellum": [
+    { name: "Keanu Reeves", role: "Cast" },
+    { name: "Halle Berry", role: "Cast" },
+    { name: "Ian McShane", role: "Cast" },
+  ],
+  "john-wick-chapter-3-parabellum-": [
+    { name: "Keanu Reeves", role: "Cast" },
+    { name: "Halle Berry", role: "Cast" },
+    { name: "Ian McShane", role: "Cast" },
+  ],
+  "john-wick": [
+    { name: "Keanu Reeves", role: "Cast" },
+    { name: "Michael Nyqvist", role: "Cast" },
+    { name: "Alfie Allen", role: "Cast" },
+    { name: "Willem Dafoe", role: "Cast" },
+    { name: "Adrianne Palicki", role: "Cast" },
+    { name: "Ian McShane", role: "Cast" },
+  ],
+  "pulp-fiction": [
+    { name: "John Travolta", role: "Cast" },
+    { name: "Samuel L. Jackson", role: "Cast" },
+    { name: "Uma Thurman", role: "Cast" },
+    { name: "Bruce Willis", role: "Cast" },
+  ],
+  joker: [
+    { name: "Joaquin Phoenix", role: "Cast" },
+    { name: "Robert De Niro", role: "Cast" },
+    { name: "Zazie Beetz", role: "Cast" },
+  ],
+  "forrest-gump": [
+    { name: "Tom Hanks", role: "Cast" },
+    { name: "Robin Wright", role: "Cast" },
+    { name: "Gary Sinise", role: "Cast" },
+    { name: "Sally Field", role: "Cast" },
+  ],
+  "thor-ragnarok": [
+    { name: "Chris Hemsworth", role: "Cast" },
+    { name: "Tom Hiddleston", role: "Cast" },
+    { name: "Cate Blanchett", role: "Cast" },
+  ],
+  morbius: [
+    { name: "Jared Leto", role: "Cast" },
+    { name: "Matt Smith", role: "Cast" },
+    { name: "Adria Arjona", role: "Cast" },
+  ],
+  "the-dark-knight": [
+    { name: "Christian Bale", role: "Cast" },
+    { name: "Heath Ledger", role: "Cast" },
+    { name: "Aaron Eckhart", role: "Cast" },
+  ],
+  "spiderman-no-way-home": [
+    { name: "Tom Holland", role: "Cast" },
+    { name: "Zendaya", role: "Cast" },
+    { name: "Benedict Cumberbatch", role: "Cast" },
+  ],
+};
+
+const maybeArray = (val: any) =>
+  Array.isArray(val)
+    ? val
+    : typeof val === "string"
+    ? val.split(",").map((v) => v.trim())
+    : [];
+
+const buildPersonAvatar = (name: string) => {
+  const key = name.trim().toLowerCase();
+  const urls = PERSON_HEADSHOTS[key];
+  if (urls && urls.length > 0) return urls[0];
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111827&color=fefefe&size=256&bold=true`;
+};
+const buildPersonAvatarFallback = (name: string, attempt = 0) => {
+  const key = name.trim().toLowerCase();
+  const urls = PERSON_HEADSHOTS[key];
+  if (urls && attempt < urls.length) return urls[attempt];
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111827&color=fefefe&size=256&bold=true`;
+};
+
+const normalizeMovieId = (id?: string | null) =>
+  (id || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/(^-|-$)/g, "");
+
+const extractPeople = (meta: Record<string, any> | null) => {
+  if (!meta) return [];
+  const castNames = maybeArray(
+    meta.mainStars ||
+      meta.stars ||
+      meta.cast ||
+      meta.actors ||
+      meta.topCast ||
+      meta.castList ||
+      meta.actorsList
+  );
+
+  const peopleMap = new Map<string, { name: string; role: "Cast" }>();
+  castNames.forEach((n) => {
+    const trimmed = String(n || "").trim();
+    if (!trimmed) return;
+    if (peopleMap.has(trimmed)) return;
+    peopleMap.set(trimmed, { name: trimmed, role: "Cast" });
+  });
+
+  return Array.from(peopleMap.values());
 };
 
 const parseDurationMinutes = (raw: any): number => {
@@ -379,6 +662,9 @@ const mapBackendMovie = (summary: any, metadata: Record<string, any>): Movie => 
     ratingCount: parseCount(metadata?.totalRatingCount ?? metadata?.userRatingCount),
     imdbRating: toNumber(metadata?.movieIMDbRating ?? summary?.imdbRating, 0),
     trailerYoutubeId: metadata?.trailerYoutubeId || summary?.trailerYoutubeId,
+    directors: Array.isArray(metadata?.directors) ? metadata.directors : undefined,
+    creators: Array.isArray(metadata?.creators) ? metadata.creators : undefined,
+    mainStars: Array.isArray(metadata?.mainStars) ? metadata.mainStars : undefined,
   };
 
   return setMovieTrailer(base);
@@ -461,13 +747,15 @@ interface UserWatchlist {
   [userId: string]: string[];
 }
 
-interface Review {
-  id: string;
+interface UserReview {
+  movieId: string;
   userId: string;
-  userName: string;
+  username: string;
   rating: number;
-  comment: string;
-  date: string;
+  reviewText: string;
+  upvotes: number;
+  downvotes: number;
+  createdAt: string;
 }
 
 interface FlagReviewPayload {
@@ -505,29 +793,15 @@ export default function App() {
   const [users, setUsers] = useState<User[]>(mockUsers);
   const showDiscoverySections = true;
   const usersRef = useRef<User[]>(mockUsers);
+  const [draggingWatchlistId, setDraggingWatchlistId] = useState<string | null>(null);
+  const [reviewsByMovie, setReviewsByMovie] = useState<Record<string, UserReview[]>>({});
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [watchlists, setWatchlists] = useState<UserWatchlist>({
     alice: ["the-cosmic-journey", "cinema-dreams"],
     bob: ["urban-legends", "love-in-paris"],
     charlie: ["the-cosmic-journey", "urban-legends", "dark-horizons"],
   });
-  const [reviews, setReviews] = useState<Review[]>([
-    {
-      id: "the-cosmic-journey",
-      userId: "alice",
-      userName: "Alice",
-      rating: 9,
-      comment: "An absolutely stunning visual masterpiece! The space scenes were breathtaking.",
-      date: "2024-10-20",
-    },
-    {
-      id: "cinema-dreams",
-      userId: "bob",
-      userName: "Bob",
-      rating: 10,
-      comment: "A must-watch for anyone who loves cinema. Beautifully crafted story.",
-      date: "2024-10-18",
-    },
-  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -621,9 +895,57 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  const mapBackendReview = useCallback((movieId: string, item: any): UserReview => {
+    return {
+      movieId,
+      userId: item.user_id,
+      username: item.username || item.user_id,
+      rating: typeof item.rating === "number" ? item.rating : Number(item.rating ?? 0),
+      reviewText: item.review_text || "",
+      upvotes: typeof item.upvotes === "number" ? item.upvotes : Number(item.upvotes ?? 0),
+      downvotes: typeof item.downvotes === "number" ? item.downvotes : Number(item.downvotes ?? 0),
+      createdAt: item.created_at || new Date().toISOString(),
+    };
+  }, []);
+
+  const fetchReviewsForMovie = useCallback(
+    async (movieId: string) => {
+      setIsLoadingReviews(true);
+      setReviewError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/reviews/${movieId}?limit=100&sort=upvotes`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reviews (${response.status})`);
+        }
+        const payload = await response.json();
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const mapped = items.map((item: any) => mapBackendReview(movieId, item));
+        setReviewsByMovie((prev) => ({ ...prev, [movieId]: mapped }));
+      } catch (error) {
+        console.error("Unable to load reviews", error);
+        setReviewError("Unable to load reviews right now.");
+        // keep existing reviews if fetch fails
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    },
+    [mapBackendReview]
+  );
+
+  useEffect(() => {
+    if (!selectedMovie) return;
+    fetchReviewsForMovie(selectedMovie.id);
+  }, [selectedMovie, fetchReviewsForMovie]);
+
   const currentUserObj = users.find((u) => u.name === currentUser);
   const currentUserId = currentUserObj?.id || "alice";
   const isAdmin = currentUserObj?.isAdmin || false;
+  const allReviews = useMemo<UserReview[]>(
+    () => Object.values(reviewsByMovie).flat(),
+    [reviewsByMovie]
+  );
+  const selectedMovieReviews = selectedMovie ? reviewsByMovie[selectedMovie.id] || [] : [];
+  const currentUserReview = selectedMovieReviews.find((r) => r.userId === currentUserId);
 
   const fetchSearchResults = useCallback(
     async (
@@ -757,7 +1079,10 @@ export default function App() {
         if (!res.ok) throw new Error("Failed to load movie details");
         const meta = await res.json();
         setSelectedMovieMeta(meta);
-      } catch {
+      } catch (error) {
+        if ((error as any)?.name === "AbortError") {
+          return;
+        }
         setSelectedMovieMeta(null);
       }
     })();
@@ -826,29 +1151,6 @@ export default function App() {
           : [...userList, movieId],
       };
     });
-  };
-
-  const handleAddReview = (movieId: string, rating: number, comment: string) => {
-    if (!isAuthenticated) {
-      setActiveSection("login");
-      setAuthMode("login");
-      return;
-    }
-    const newReview: Review = {
-      id: movieId,
-      userId: currentUserId,
-      userName: currentUser,
-      rating,
-      comment,
-      date: new Date().toISOString().split("T")[0],
-    };
-    setReviews((prev) => [...prev, newReview]);
-  };
-
-  const handleSubmitDetailReview = () => {
-    if (!selectedMovie || !detailReviewInput.comment.trim()) return;
-    handleAddReview(selectedMovie.id, detailReviewInput.rating, detailReviewInput.comment.trim());
-    setDetailReviewInput({ rating: 5, comment: "" });
   };
 
   const handleFlagReview = async ({
@@ -925,7 +1227,11 @@ export default function App() {
 
   const handleDeleteMovie = (movieId: string) => {
     setMovies((prev) => prev.filter((m) => m.id !== movieId));
-    setReviews((prev) => prev.filter((r) => r.id !== movieId));
+    setReviewsByMovie((prev) => {
+      const next = { ...prev };
+      delete next[movieId];
+      return next;
+    });
     setWatchlists((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((user) => {
@@ -954,12 +1260,6 @@ export default function App() {
     setMovies((prev) => [...prev, movieWithId]);
   };
 
-  const handleDeleteReview = (movieId: string, userId: string, date: string) => {
-    setReviews((prev) =>
-      prev.filter((r) => !(r.id === movieId && r.userId === userId && r.date === date))
-    );
-  };
-
   const handleDeleteUser = (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     // Also clean up user's data
@@ -968,7 +1268,13 @@ export default function App() {
       delete updated[userId];
       return updated;
     });
-    setReviews((prev) => prev.filter((r) => r.userId !== userId));
+    setReviewsByMovie((prev) => {
+      const next: Record<string, UserReview[]> = {};
+      Object.entries(prev).forEach(([movieId, revs]) => {
+        next[movieId] = revs.filter((r) => r.userId !== userId);
+      });
+      return next;
+    });
     
     // Switch to another user if deleting current user
     if (currentUserId === userId && users.length > 1) {
@@ -993,6 +1299,118 @@ export default function App() {
         u.id === userId ? { ...u, isFlagged: false, flagReason: undefined } : u
       )
     );
+  };
+
+  const handleVoteReview = async (
+    movieId: string,
+    reviewUserId: string,
+    direction: "up" | "down"
+  ) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      setIsDialogOpen(false);
+      return;
+    }
+
+    if (reviewUserId === currentUserId) {
+      return;
+    }
+
+    const endpoint = direction === "up" ? "upvote" : "downvote";
+    try {
+      const response = await fetch(`${API_BASE_URL}/reviews/${movieId}/${reviewUserId}/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ voter_id: currentUserId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Unable to submit vote right now.");
+      }
+
+      setReviewsByMovie((prev) => {
+        const existing = prev[movieId] || [];
+        const updated = existing.map((r) =>
+          r.userId === reviewUserId
+            ? {
+                ...r,
+                upvotes:
+                  direction === "up"
+                    ? (payload?.upvotes ?? r.upvotes ?? 0)
+                    : r.upvotes ?? 0,
+                downvotes:
+                  direction === "down"
+                    ? (payload?.downvotes ?? r.downvotes ?? 0)
+                    : r.downvotes ?? 0,
+              }
+            : r
+        );
+        return { ...prev, [movieId]: updated };
+      });
+    } catch (error) {
+      console.error("Failed to vote on review", error);
+      setReviewError("Unable to vote on this review right now.");
+    }
+  };
+
+  const handleSubmitReview = async (movieId: string, rating: number, comment: string) => {
+    if (!isAuthenticated) {
+      setActiveSection("login");
+      setAuthMode("login");
+      setIsDialogOpen(false);
+      return;
+    }
+
+    const normalizedRating = Math.max(1, Math.min(10, rating));
+    try {
+      const response = await fetch(`${API_BASE_URL}/reviews/${movieId}/${currentUserId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ rating: normalizedRating, review_text: comment }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Unable to submit review.");
+      }
+
+      const mapped = mapBackendReview(movieId, payload);
+      setReviewsByMovie((prev) => ({
+        ...prev,
+        [movieId]: [
+          ...(prev[movieId]?.filter((r) => r.userId !== currentUserId) || []),
+          mapped,
+        ],
+      }));
+    } catch (error) {
+      console.error("Failed to submit review", error);
+      setReviewError("Unable to submit review right now.");
+    }
+  };
+
+  const handleDeleteReview = async (movieId: string, userId?: string, _date?: string) => {
+    const targetUser = userId || currentUserId;
+    try {
+      await fetch(`${API_BASE_URL}/reviews/${movieId}/${targetUser}`, {
+        method: "DELETE",
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to delete review", error);
+    } finally {
+      setReviewsByMovie((prev) => ({
+        ...prev,
+        [movieId]: (prev[movieId] || []).filter((r) => r.userId !== targetUser),
+      }));
+    }
   };
 
   const handleAddPenalty = async (userId: string, reason: string) => {
@@ -1055,25 +1473,44 @@ export default function App() {
   };
 
   const currentWatchlist = watchlists[currentUserId] || [];
+  const handleWatchlistDragStart = (movieId: string) => setDraggingWatchlistId(movieId);
+  const handleWatchlistDragEnd = () => setDraggingWatchlistId(null);
+  const handleWatchlistDragEnter = (targetId: string) => {
+    if (!draggingWatchlistId || draggingWatchlistId === targetId) return;
+    setWatchlists((prev) => {
+      const list = prev[currentUserId] ? [...prev[currentUserId]] : [];
+      const fromIdx = list.indexOf(draggingWatchlistId);
+      const toIdx = list.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, draggingWatchlistId);
+      return { ...prev, [currentUserId]: list };
+    });
+  };
+  const showDiscoverySections = activeSection === "home" && filterGenre === "all";
 
   // Get all unique genres
   const allGenres = Array.from(new Set(movies.flatMap((movie) => movie.genre)));
 
-  const filteredMovies = movies
+  const isWatchlistView = activeSection === "watchlist";
+
+  const watchlistMoviesOrdered = currentWatchlist
+    .map((id) => movies.find((m) => m.id === id))
+    .filter(Boolean) as Movie[];
+
+  const watchlistFiltered = watchlistMoviesOrdered.filter((movie) => {
+    const matchesGenre = filterGenre === "all" || movie.genre.includes(filterGenre);
+    const matchesSearch =
+      searchQuery === "" ||
+      movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesGenre && matchesSearch;
+  });
+
+  const generalFiltered = movies
     .filter((movie) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        movie.genre.some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesGenre =
-        filterGenre === "all" || movie.genre.includes(filterGenre);
-
-      if (activeSection === "watchlist") {
-        return matchesSearch && matchesGenre && currentWatchlist.includes(movie.id);
-      }
-
-      return matchesSearch && matchesGenre;
+      const matchesGenre = filterGenre === "all" || movie.genre.includes(filterGenre);
+      return matchesGenre;
     })
     .sort((a, b) => {
       if (sortBy === "title") {
@@ -1085,6 +1522,8 @@ export default function App() {
       }
       return 0;
     });
+
+  const filteredMovies = isWatchlistView ? watchlistFiltered : generalFiltered;
 
   const movieReviews = useMemo(
     () => (selectedMovie ? reviews.filter((r) => r.id === selectedMovie.id) : []),
@@ -1125,6 +1564,21 @@ export default function App() {
     parseCount(selectedMovieMeta?.totalRatingCount) ||
     parseCount(selectedMovie?.ratingCount);
   const trailerUrl = selectedMovie ? computeTrailerUrl(selectedMovieMeta, selectedMovie.title) : "";
+  const castAndCrew = useMemo(() => {
+    const extracted = extractPeople({ ...(selectedMovie || {}), ...(selectedMovieMeta || {}) });
+    if (extracted.length > 0) return extracted;
+    const normalizedId = normalizeMovieId(selectedMovie?.id);
+    const fallback = normalizedId ? METADATA_PEOPLE_FALLBACK[normalizedId] : null;
+    return fallback ?? [];
+  }, [selectedMovie, selectedMovieMeta]);
+
+  const directors = useMemo(() => {
+    const combined: Record<string, any> = { ...(selectedMovie || {}), ...(selectedMovieMeta || {}) };
+    const fromMeta = maybeArray(combined.directors || combined.director);
+    if (fromMeta.length > 0) return fromMeta;
+    const normalizedId = normalizeMovieId(selectedMovie?.id);
+    return normalizedId && DIRECTORS_FALLBACK[normalizedId] ? DIRECTORS_FALLBACK[normalizedId] : [];
+  }, [selectedMovie, selectedMovieMeta]);
 
   const displayTitle =
     activeSection === "home"
@@ -1270,7 +1724,7 @@ export default function App() {
             <AdminPanel
               movies={movies}
               users={users}
-              reviews={reviews}
+              reviews={allReviews as any}
               watchlists={watchlists}
               onDeleteMovie={handleDeleteMovie}
               onEditMovie={handleEditMovie}
@@ -1296,7 +1750,7 @@ export default function App() {
                   <p className="text-neutral-400 text-sm">User Rating</p>
                   <p className="text-3xl text-yellow-400 font-semibold">{detailRating.toFixed(1)}</p>
                   <p className="text-neutral-400 text-sm mt-1">
-                    User Reviews: {detailUserReviews > 0 ? detailUserReviews.toLocaleString() : "N/A"}
+                    User Reviews: {formatCompactNumber(detailUserReviews)}
                   </p>
                 </div>
               </div>
@@ -1344,7 +1798,57 @@ export default function App() {
                 <p className="text-neutral-300 leading-relaxed">
                   {selectedMovie.description || "No description available."}
                 </p>
+                {directors.length > 0 && (
+                  <p className="text-neutral-200">
+                    Directed by: <span className="text-white">{directors.join(", ")}</span>
+                  </p>
+                )}
               </div>
+
+              {castAndCrew.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-semibold">Cast</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {castAndCrew.map((person) => (
+                      <div
+                        key={person.name}
+                        className="flex items-center gap-4 p-4 rounded-lg border border-neutral-800 bg-neutral-900"
+                      >
+                        <img
+                          src={buildPersonAvatar(person.name)}
+                          alt={person.name}
+                          className="w-36 h-36 rounded-full object-cover bg-neutral-800"
+                          onError={(e) => {
+                            const el = e.currentTarget as HTMLImageElement;
+                            const attempt = Number(el.dataset.fallbackIndex || "0");
+                            const next = buildPersonAvatarFallback(person.name, attempt + 1);
+                            if (next === el.src || attempt > 4) return;
+                            el.dataset.fallbackIndex = String(attempt + 1);
+                            el.src = next;
+                          }}
+                          referrerPolicy="no-referrer"
+                        />
+                        <div>
+                          <p className="text-white text-base font-semibold">{person.name}</p>
+                          <p className="text-sm text-neutral-300">
+                            {person.role}
+                            {person.role === "Cast" &&
+                            CHARACTER_BY_MOVIE[normalizeMovieId(selectedMovie?.id)]?.[
+                              person.name.trim().toLowerCase()
+                            ]
+                              ? ` • ${
+                                  CHARACTER_BY_MOVIE[normalizeMovieId(selectedMovie?.id)]?.[
+                                    person.name.trim().toLowerCase()
+                                  ]
+                                }`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1618,7 +2122,7 @@ export default function App() {
                     <AdminDashboard 
                       users={users}
                       movies={movies}
-                      reviews={reviews}
+                      reviews={allReviews as any}
                       watchlists={watchlists}
                     />
                   ) : currentUserObj ? (
@@ -1626,13 +2130,13 @@ export default function App() {
                       currentUser={currentUserObj}
                       movies={movies}
                       watchlist={currentWatchlist}
-                      reviews={reviews}
+                      reviews={allReviews as any}
                     />
                   ) : null}
                 </>
               )}
 
-              {(activeSection === "watchlist" || searchQuery !== "" || filterGenre !== "all") && (
+              {(activeSection === "watchlist" || filterGenre !== "all") && (
                 <>
                   <div className="mb-6">
                     <h2 className="text-2xl mb-1">{displayTitle}</h2>
@@ -1643,13 +2147,25 @@ export default function App() {
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredMovies.map((movie) => (
-                      <MovieCard
+                      <div
                         key={movie.id}
-                        movie={movie}
-                        isInWatchlist={currentWatchlist.includes(movie.id)}
-                        onWatchlistToggle={handleWatchlistToggle}
-                        onMovieClick={handleMovieClick}
-                      />
+                        draggable={isWatchlistView}
+                        onDragStart={() => handleWatchlistDragStart(movie.id)}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          handleWatchlistDragEnter(movie.id);
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnd={handleWatchlistDragEnd}
+                        className={isWatchlistView ? "cursor-move" : ""}
+                      >
+                        <MovieCard
+                          movie={movie}
+                          isInWatchlist={currentWatchlist.includes(movie.id)}
+                          onWatchlistToggle={handleWatchlistToggle}
+                          onMovieClick={handleMovieClick}
+                        />
+                      </div>
                     ))}
                   </div>
 
@@ -1665,6 +2181,32 @@ export default function App() {
         </div>
       </div>
 
+      <MovieDialog
+        movie={selectedMovie}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        isInWatchlist={selectedMovie ? currentWatchlist.includes(selectedMovie.id) : false}
+        onWatchlistToggle={handleWatchlistToggle}
+        reviews={selectedMovieReviews}
+        onVoteReview={handleVoteReview}
+        currentUserId={currentUserId}
+        currentUserName={currentUser}
+        isAuthenticated={isAuthenticated}
+        onRequireLogin={() => {
+          setActiveSection("login");
+          setAuthMode("login");
+          setIsDialogOpen(false);
+        }}
+        reviewError={reviewError}
+        isReviewLoading={isLoadingReviews}
+        onSubmitReview={handleSubmitReview}
+        onDeleteReview={async () => {
+          if (!selectedMovie) return;
+          await handleDeleteReview(selectedMovie.id, currentUserId);
+        }}
+        userReview={currentUserReview}
+        onFlagReview={handleFlagReview}
+      />
     </div>
   );
 }

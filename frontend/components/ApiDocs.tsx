@@ -1,3 +1,4 @@
+import React from "react";
 import { Code, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -20,17 +21,17 @@ function CodeBlock({ code, language = "json" }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative text-neutral-100">
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 h-8 w-8 text-neutral-400 hover:text-white"
+        className="absolute top-2 right-2 h-8 w-8 text-neutral-300 hover:text-white"
         onClick={handleCopy}
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </Button>
-      <pre className="bg-neutral-950 border border-neutral-800 rounded-lg p-4 overflow-x-auto">
-        <code className="text-sm text-neutral-300">{code}</code>
+      <pre className="bg-neutral-950 border border-neutral-800 rounded-lg p-4 overflow-x-auto text-neutral-100">
+        <code className="text-sm text-neutral-100">{code}</code>
       </pre>
     </div>
   );
@@ -58,26 +59,27 @@ function Endpoint({ method, path, description, request, response, params }: Endp
       <CardHeader>
         <div className="flex items-center gap-3 mb-2">
           <Badge className={`${methodColors[method]} text-white`}>{method}</Badge>
-          <code className="text-sm bg-neutral-950 px-3 py-1 rounded border border-neutral-800">
+          <code className="text-sm bg-neutral-950 px-3 py-1 rounded border border-neutral-800 text-white">
             {path}
           </code>
         </div>
-        <CardDescription className="text-neutral-300">{description}</CardDescription>
+        <CardTitle className="text-white">{`${method} ${path}`}</CardTitle>
+        <CardDescription className="text-neutral-200">{description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 text-neutral-100">
         {params && params.length > 0 && (
           <div>
-            <h4 className="mb-2">Parameters</h4>
+            <h4 className="mb-2 text-white">Parameters</h4>
             <div className="space-y-2">
               {params.map((param) => (
                 <div key={param.name} className="flex gap-2">
-                  <code className="bg-neutral-950 px-2 py-1 rounded text-sm">
+                  <code className="bg-neutral-950 px-2 py-1 rounded text-sm text-white">
                     {param.name}
                   </code>
-                  <Badge variant="outline" className="border-neutral-700">
+                  <Badge variant="outline" className="border-neutral-600 bg-neutral-900/60 text-neutral-200">
                     {param.type}
                   </Badge>
-                  <span className="text-sm text-neutral-400">{param.description}</span>
+                  <span className="text-sm text-neutral-200">{param.description}</span>
                 </div>
               ))}
             </div>
@@ -86,13 +88,13 @@ function Endpoint({ method, path, description, request, response, params }: Endp
 
         {request && (
           <div>
-            <h4 className="mb-2">Request Body</h4>
+            <h4 className="mb-2 text-white">Request Body</h4>
             <CodeBlock code={request} />
           </div>
         )}
 
         <div>
-          <h4 className="mb-2">Response</h4>
+          <h4 className="mb-2 text-white">Response</h4>
           <CodeBlock code={response} />
         </div>
       </CardContent>
@@ -366,10 +368,10 @@ export function ApiDocs() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       <div>
-        <h1 className="text-3xl mb-2">API Documentation</h1>
-        <p className="text-neutral-400">
+        <h1 className="text-3xl mb-2 text-white">API Documentation</h1>
+        <p className="text-neutral-300">
           Base URL: <code className="text-white">http://localhost:8000</code>. All JSON responses are UTF-8 and most endpoints are stateless. JWT-protected routes require an <code>Authorization: Bearer &lt;token&gt;</code> header.
         </p>
       </div>
@@ -378,31 +380,31 @@ export function ApiDocs() {
         <TabsList className="bg-neutral-900/70 border border-neutral-700 shadow-inner">
           <TabsTrigger
             value="search"
-            className="px-4 text-neutral-200 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             Search
           </TabsTrigger>
           <TabsTrigger
             value="users"
-            className="px-4 text-neutral-200 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             Users & Auth
           </TabsTrigger>
           <TabsTrigger
             value="flags"
-            className="px-4 text-neutral-200 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             Flags
           </TabsTrigger>
           <TabsTrigger
             value="penalties"
-            className="px-4 text-neutral-200 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             Penalties
           </TabsTrigger>
           <TabsTrigger
             value="admin"
-            className="px-4 text-neutral-200 data-[state=active]:bg-white data-[state=active]:text-black"
+            className="px-4 text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-neutral-700"
           >
             Admin
           </TabsTrigger>
