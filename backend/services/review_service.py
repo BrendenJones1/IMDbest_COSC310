@@ -183,7 +183,8 @@ class ReviewService:
         ReviewRepository.save_review_data(movie_id, review_data)
         MovieRepository.save_movie_metadata(movie_id, metadata)
 
-    def get_reviews_by_user_id(self, user_id: str) -> Tuple[List[ReviewOut], List[str]]:
+    @staticmethod
+    def get_reviews_by_user_id(user_id: str) -> Tuple[List[ReviewOut], List[str]]:
         """
         Collect all reviews authored by a user across all movies, returning both reviews and movie IDs.
         """

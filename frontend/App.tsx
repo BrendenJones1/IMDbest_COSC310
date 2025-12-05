@@ -256,6 +256,8 @@ interface Review {
 }
 
 export default function App() {
+  const [isDownloadingData, setIsDownloadingData] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -379,6 +381,80 @@ export default function App() {
     };
     setReviews((prev) => [...prev, newReview]);
   };
+
+   const handleDownloadUserData = async () => {
+    setDownloadError(null);
+    setIsDownloadingData(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      const headers: HeadersInit = { Accept: "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+
+      const response = await fetch(`${API_BASE_URL}/users/me/export`, {
+        method: "GET",
+        headers,
+
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
+
+      // Get the file as a Blob
+      const blob = await response.blob();
+
+      // Try to read filename from Content-Disposition, default to my-data.json
+      const cd = response.headers.get("Content-Disposition") || "";
+      let filename = "my-data.json";
+      const match = /filename="?([^"]+)"?/.exec(cd);
+      if (match?.[1]) {
+        filename = match[1];
+      }
+
+      // Create a temporary link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download user data", err);
+      setDownloadError("Unable to download your data right now. Please try again later.");
+    } finally {
+      setIsDownloadingData(false);
+    }
+  };
+  
+const loginAgainstBackend = async (username: string, password: string) => {
+  const url = new URL(`${API_BASE_URL}/users/login`);
+  url.searchParams.set("username", username);
+  url.searchParams.set("password", password);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend login failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  const token = data.token as string | undefined; // backend returns { token, user }
+  if (!token) {
+    throw new Error("No token in login response");
+  }
+
+  localStorage.setItem("accessToken", token);
+};
 
   const handleMovieClick = (movie: Movie) => {
     setSelectedMovie(movie);
@@ -557,7 +633,7 @@ export default function App() {
 
     return (
       <LoginScreen
-        onLogin={({ email, password }) => {
+        onLogin={async ({ email, password }) => {
           setAuthError(null);
           const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
           if (!user) {
@@ -568,8 +644,16 @@ export default function App() {
             setAuthError("Incorrect password. Please try again.");
             return;
           }
-          setCurrentUser(user.name);
-          setIsAuthenticated(true);
+          try {
+              // Get real JWT from backend and store in localStorage
+              await loginAgainstBackend(user.id, password); 
+
+              setCurrentUser(user.name);
+              setIsAuthenticated(true);
+            } catch (err) {
+              console.error("Backend login failed", err);
+              setAuthError("Login failed on the server. Please try again.");
+            }
         }}
         onSwitchToRegister={() => {
           setAuthMode("register");
@@ -621,18 +705,27 @@ export default function App() {
                       className="pl-10 bg-neutral-900 border-neutral-800 text-white placeholder:text-neutral-500"
                     />
                   </div>
-                  <div className="ml-4">
-                  <UserSwitcher
-                    currentUser={currentUser}
-                    currentUserEmail={currentUserObj?.email}
-                    onSignOut={() => {
-                      // Sign out and return to the login screen
-                      setIsAuthenticated(false);
-                      setAuthMode("login");
-                      setAuthError(null);
-                      setActiveSection("home");
-                    }}
-                  />
+                  <div className="ml-4 flex items-center gap-2">
+                    <UserSwitcher
+                      currentUser={currentUser}
+                      currentUserEmail={currentUserObj?.email}
+                      onSignOut={() => {
+                        setIsAuthenticated(false);
+                        setAuthMode("login");
+                        setAuthError(null);
+                        setActiveSection("home");
+                      }}
+                    />
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-neutral-900 border-neutral-800 text-xs"
+                      onClick={handleDownloadUserData}
+                      disabled={isDownloadingData}
+                    >
+                      {isDownloadingData ? "Downloading..." : "Download my data"}
+                    </Button>
                   </div>
                 </div>
                 
@@ -683,6 +776,13 @@ export default function App() {
                   {movieError}
                 </div>
               )}
+
+              {downloadError && (
+                <div className="mb-6 rounded border border-red-800 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {downloadError}
+                </div>
+              )}
+
 
               {isLoadingMovies && !movieError && (
                 <div className="mb-6 text-sm text-neutral-400">Loading movies from backend...</div>
