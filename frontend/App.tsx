@@ -142,9 +142,18 @@ const carouselSlides = [
   },
 ];
 
-const API_BASE_URL =
-  (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env
-    .VITE_API_BASE_URL ?? "http://localhost:8000";
+const resolveApiBaseUrl = () => {
+  const envUrl = (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env
+    .VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) return envUrl.trim();
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8000`;
+  }
+  return "http://localhost:8000";
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const hashStringToPositiveInt = (value: string) => {
   let hash = 0;
