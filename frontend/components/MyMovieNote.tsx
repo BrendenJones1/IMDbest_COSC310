@@ -16,6 +16,7 @@ export function MyMovieNote({ userId, movieId }: MyMovieNoteProps) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Load note for this user + movie
   useEffect(() => {
@@ -33,7 +34,7 @@ export function MyMovieNote({ userId, movieId }: MyMovieNoteProps) {
         );
 
         if (!res.ok) {
-          // If there is no note yet, keep it empty
+          // If endpoint is missing (404) or note missing, keep empty silently
           return;
         }
 
@@ -65,13 +66,19 @@ export function MyMovieNote({ userId, movieId }: MyMovieNoteProps) {
       });
 
       if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("Notes API is unavailable on the server (404).");
+        }
         throw new Error("Failed to save note");
       }
 
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
-    } catch {
+    } catch (e) {
       setStatus("error");
+      setErrorMessage(
+        e instanceof Error ? e.message : "Unable to save note right now."
+      );
     }
   };
 
@@ -101,7 +108,9 @@ export function MyMovieNote({ userId, movieId }: MyMovieNoteProps) {
           <span className="text-xs text-emerald-400">Saved</span>
         )}
         {status === "error" && (
-          <span className="text-xs text-red-400">Error saving note</span>
+          <span className="text-xs text-red-400">
+            {errorMessage || "Error saving note"}
+          </span>
         )}
       </div>
     </div>
